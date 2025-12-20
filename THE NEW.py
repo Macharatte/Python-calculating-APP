@@ -9,35 +9,37 @@ st.set_page_config(page_title="Scientific Calculator Pro", layout="centered")
 st.markdown("""
 <style>
     header {visibility: hidden;}
-    .main .block-container {padding: 0.5rem !important; max-width: 600px !important;}
+    /* ボタンを正方形に近づけるため、全体の横幅を調整 */
+    .main .block-container {
+        padding: 0.5rem !important; 
+        max-width: 450px !important; /* 横幅を絞る */
+    }
     
-    /* ボタンを太く・大きく・隙間なしに */
+    /* ボタンを極太の正方形(1:1)に近づける */
     div.stButton > button {
         width: 100% !important;
-        height: 75px !important; /* さらに高く */
-        font-size: 22px !important; /* 文字をより大きく */
-        font-weight: 900 !important; /* 極太 */
+        height: 75px !important; /* 高さをしっかり確保 */
+        font-size: 24px !important; /* 文字も大きく */
+        font-weight: 900 !important;
         margin: 0px !important;
         padding: 0px !important;
-        border: 2px solid #222 !important; /* 境界線を太くして力強く */
+        border: 2px solid #222 !important;
         border-radius: 0px !important;
         background-color: #ffffff;
         color: #000000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     
-    /* ボタンホバー時の色 */
-    div.stButton > button:hover {
-        background-color: #e0e0e0 !important;
-        border-color: #000 !important;
-    }
-
+    /* ボタン間の隙間をゼロにする */
     [data-testid="column"] { padding: 0px !important; margin: 0px !important; }
     [data-testid="stHorizontalBlock"] { gap: 0px !important; }
 
     .display-box { 
         font-size: 40px; font-weight: bold; text-align: right; 
         padding: 20px; background: #000000; color: #00ff00; 
-        border: 3px solid #444; border-radius: 0px; min-height: 90px; margin-bottom: 5px;
+        border: 3px solid #444; border-radius: 0px; min-height: 100px; margin-bottom: 5px;
         font-family: 'Courier New', monospace; word-wrap: break-word;
     }
 </style>
@@ -54,11 +56,12 @@ def on_click(char):
         if not st.session_state.formula: return
         try:
             f = st.session_state.formula
+            # 置換順序に注意：＋記号を確実に処理
             f = f.replace('×', '*').replace('÷', '/').replace('−', '-')
             f = f.replace('√', 'math.sqrt').replace('^^', '**').replace('10^', '10**')
             f = f.replace('π', 'math.pi').replace('exp', 'math.e').replace('∞', 'float("inf")')
 
-            # --- 全単位（ヨクト〜ヨタ）の安全な置換 ---
+            # --- 全単位の安全な置換 ---
             u_map = {
                 'Y': '1e24', 'Z': '1e21', 'E': '1e18', 'P': '1e15', 'T': '1e12', 
                 'G': '1e9', 'M': '1e6', 'k': '1e3', 'h': '1e2', 'da': '1e1',
@@ -83,7 +86,9 @@ def on_click(char):
             st.session_state.formula = "Error"
     elif char == "C": st.session_state.formula = ""
     elif char == "del": st.session_state.formula = st.session_state.formula[:-1]
-    else: st.session_state.formula += str(char)
+    else: 
+        # 数字や演算子を単純に追加
+        st.session_state.formula += str(char)
 
 def draw_row(labels):
     cols = st.columns(len(labels))
@@ -92,11 +97,13 @@ def draw_row(labels):
             on_click(label); st.rerun()
 
 # --- メインレイアウト ---
-draw_row(["7", "8", "9", "π", "÷", "+"])
+# 通常の演算ボタン
+draw_row(["7", "8", "9", "π", "÷", "+"]) # ここに確実に "+" を配置
 draw_row(["4", "5", "6", "exp", "√", "−"])
 draw_row(["1", "2", "3", "i", "^^", "×"])
 draw_row(["(", ")", "0", "00", ".", "C"])
 
+# 下部の大きな操作ボタン
 col_eq, col_del = st.columns(2)
 if col_eq.button("＝", key="eq_big"): on_click("＝"); st.rerun()
 if col_del.button("delete", key="del_big"): on_click("del"); st.rerun()
@@ -107,14 +114,14 @@ for i, m in enumerate(["通常", "科学計算", "巨数", "値数"]):
     if m_cols[i].button(m, key=f"mode_{m}"):
         st.session_state.mode = m; st.rerun()
 
-# --- 各モード別（単位復元） ---
+# --- モード別パネル ---
 if st.session_state.mode == "科学計算":
     draw_row(["sin(", "cos(", "tan(", "log("])
     draw_row(["abs(", "round(", "min(", "max("])
 elif st.session_state.mode == "巨数":
-    st.caption("微小単位 (ヨクト〜)")
+    st.caption("微小単位")
     draw_row(["y", "z", "a", "f", "p", "n"])
-    st.caption("巨大単位 (〜ヨタ)")
+    st.caption("巨大単位")
     draw_row(["μ", "m", "k", "M", "G", "T"])
     draw_row(["P", "E", "Z", "Y", "∞", "i"])
 elif st.session_state.mode == "値数":
