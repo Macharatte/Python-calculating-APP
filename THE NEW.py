@@ -46,9 +46,10 @@ st.markdown("""
         color: var(--text-color) !important; font-weight: bold !important;
     }
     
-    /* ＝ ボタン専用（少し強調） */
+    /* ＝ ボタン：他と列を揃えつつ強調 */
     .eq-container div.stButton > button {
         border: 2px solid var(--border-color) !important;
+        background-color: var(--bg-color) !important;
     }
 
     .delete-btn div.stButton > button {
@@ -121,25 +122,24 @@ def draw_row(labels):
         if cols[i].button(l, key=f"btn_{l}_{i}_{st.session_state.mode}"):
             on_click(l); st.rerun()
 
-# 1-3段目
+# 1-3段目 (すべて6列)
 draw_row(["7", "8", "9", "π", "÷", "+"])
 draw_row(["4", "5", "6", "e", "√", "−"])
 draw_row(["1", "2", "3", "i", "^^", "×"])
 
-# 4段目（レイアウト変更：( ) 0 00 . ＝ ）
-# ＝ボタンを大きく見せるために [1, 1, 1, 1, 1, 2] の比率で分割
-c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1, 1, 1, 2])
-with c1: 
+# 4段目 (修正：他の行と完璧に整列させるため均等な6列配置)
+cols = st.columns(6)
+with cols[0]:
     if st.button("("): on_click("("); st.rerun()
-with c2: 
+with cols[1]:
     if st.button(")"): on_click(")"); st.rerun()
-with c3: 
+with cols[2]:
     if st.button("0"): on_click("0"); st.rerun()
-with c4: 
+with cols[3]:
     if st.button("00"): on_click("00"); st.rerun()
-with c5: 
+with cols[4]:
     if st.button("."): on_click("."); st.rerun()
-with c6:
+with cols[5]:
     st.markdown('<div class="eq-container">', unsafe_allow_html=True)
     if st.button("＝"): on_click("＝"); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
