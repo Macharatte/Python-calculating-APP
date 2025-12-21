@@ -46,6 +46,11 @@ st.markdown("""
         color: var(--text-color) !important; font-weight: bold !important;
     }
     
+    /* ＝ ボタン専用（少し強調） */
+    .eq-container div.stButton > button {
+        border: 2px solid var(--border-color) !important;
+    }
+
     .delete-btn div.stButton > button {
         background-color: #FF0000 !important; color: white !important;
         height: 60px !important; font-size: 22px !important; margin-top: 10px !important;
@@ -74,7 +79,6 @@ def on_click(char):
     current = st.session_state.formula
     operators = ["+", "−", "×", "÷", "^^", "."]
 
-    # 「＝」直後の挙動
     if st.session_state.last_was_equal:
         if char in operators:
             st.session_state.last_was_equal = False
@@ -99,25 +103,15 @@ def on_click(char):
     elif char == "delete":
         st.session_state.formula = ""
     else:
-        # --- 入力ロジックの修正 ---
-        # 1. 式が空の時、マイナス以外の演算子は無視
         if not current:
-            if char in ["+", "×", "÷", "^^", "."]:
-                return
+            if char in ["+", "×", "÷", "^^", "."]: return
             st.session_state.formula += str(char)
             return
-
-        # 2. 演算子が連続した場合の「切り替え」処理
         if current[-1] in operators and char in operators:
-            # 最後の1文字を消して、新しい演算子を追加
             st.session_state.formula = current[:-1] + str(char)
             return
-
-        # 3. SI接頭語ガード
         prefixes = ['Q','R','Y','Z','E','P','T','G','M','k','h','da','d','c','m','μ','n','p','f','a','z','y','r','q']
-        if char in prefixes and not current[-1].isdigit():
-            return
-
+        if char in prefixes and not current[-1].isdigit(): return
         st.session_state.formula += str(char)
 
 def draw_row(labels):
@@ -127,21 +121,30 @@ def draw_row(labels):
         if cols[i].button(l, key=f"btn_{l}_{i}_{st.session_state.mode}"):
             on_click(l); st.rerun()
 
-# メインボタン
+# 1-3段目
 draw_row(["7", "8", "9", "π", "÷", "+"])
 draw_row(["4", "5", "6", "e", "√", "−"])
 draw_row(["1", "2", "3", "i", "^^", "×"])
 
-c1, c2, c3, c4 = st.columns([1, 1, 1, 3])
+# 4段目（レイアウト変更：( ) 0 00 . ＝ ）
+# ＝ボタンを大きく見せるために [1, 1, 1, 1, 1, 2] の比率で分割
+c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1, 1, 1, 2])
 with c1: 
-    if st.button("()"): on_click("()"); st.rerun()
+    if st.button("("): on_click("("); st.rerun()
 with c2: 
-    if st.button("0"): on_click("0"); st.rerun()
+    if st.button(")"): on_click(")"); st.rerun()
 with c3: 
+    if st.button("0"): on_click("0"); st.rerun()
+with c4: 
+    if st.button("00"): on_click("00"); st.rerun()
+with c5: 
     if st.button("."): on_click("."); st.rerun()
-with c4:
+with c6:
+    st.markdown('<div class="eq-container">', unsafe_allow_html=True)
     if st.button("＝"): on_click("＝"); st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
+# 最下部
 st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
 if st.button("delete"): on_click("delete"); st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
