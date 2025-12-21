@@ -87,14 +87,14 @@ def on_click(char):
         if not current: return
         try:
             f = current.replace('×', '*').replace('÷', '/').replace('−', '-')
-            # 度数法(°)をラジアンに変換するための前処理
+            # 度数法(°)をラジアンに変換
             f = re.sub(r'([\d\.]+)\°', r'math.radians(\1)', f)
             
             f = f.replace('√', 'math.sqrt').replace('^^', '**').replace('π', 'math.pi').replace('e', 'math.e')
             f = f.replace('sin', 'math.sin').replace('cos', 'math.cos').replace('tan', 'math.tan')
             f = f.replace('log', 'math.log10').replace('exp', 'math.exp').replace('abs', 'abs')
 
-            # SI接頭語置換（数字の直後にある場合のみ置換するように修正し、abs関数のaなどを保護）
+            # SI接頭語置換（正規表現で数字の直後のみを対象にする）
             u_map = {'Q':'1e30','R':'1e27','Y':'1e24','Z':'1e21','E':'1e18','P':'1e15','T':'1e12','G':'1e9','M':'1e6','k':'1e3','h':'1e2','da':'1e1','d':'1e-1','c':'1e-2','m':'1e-3','μ':'1e-6','n':'1e-9','p':'1e-12','f':'1e-15','a':'1e-18','z':'1e-21','y':'1e-24','r':'1e-27','q':'1e-30'}
             for sym, val in u_map.items():
                 f = re.sub(rf'(\d+){sym}', rf'(\1*{val})', f)
@@ -105,7 +105,7 @@ def on_click(char):
             res = eval(f, {"__builtins__": None}, {"math": math, "statistics": statistics, "calculate_t_score": calculate_t_score, "abs": abs})
             st.session_state.formula = format(res, '.10g')
             st.session_state.last_was_equal = True
-        except Exception as e:
+        except:
             st.session_state.formula = "Error"
     elif char == "delete":
         st.session_state.formula = ""
@@ -114,12 +114,15 @@ def on_click(char):
             if char in ["+", "×", "÷", "^^", ".", "°"]: return
             st.session_state.formula += str(char)
             return
+        # 演算子切り替えロジック
         if current[-1] in operators and char in operators:
             st.session_state.formula = current[:-1] + str(char)
             return
-        # 接頭語入力のガード（数字の後にしか打てない）
+        
+        # SI接頭語ガード
         prefixes = ['Q','R','Y','Z','E','P','T','G','M','k','h','da','d','c','m','μ','n','p','f','a','z','y','r','q']
         if char in prefixes and not current[-1].isdigit(): return
+        
         st.session_state.formula += str(char)
 
 def draw_row(labels):
@@ -129,11 +132,12 @@ def draw_row(labels):
         if cols[i].button(l, key=f"btn_{l}_{i}_{st.session_state.mode}"):
             on_click(l); st.rerun()
 
-# メインボタン
+# --- メインレイアウト ---
 draw_row(["7", "8", "9", "π", "÷", "+"])
 draw_row(["4", "5", "6", "e", "√", "−"])
 draw_row(["1", "2", "3", "i", "^^", "×"])
 
+# 4段目
 cols = st.columns(6)
 items = ["(", ")", "0", "00", ".", "＝"]
 for i, item in enumerate(items):
@@ -145,16 +149,19 @@ for i, item in enumerate(items):
         else:
             if st.button(item): on_click(item); st.rerun()
 
+# デリート
 st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
 if st.button("delete"): on_click("delete"); st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
+# モード切替
 st.write("---")
 m_cols = st.columns(4)
 modes = ["通常", "科学計算", "巨数", "値数"]
 for i, m in enumerate(modes):
     if m_cols[i].button(m, key=f"m_{m}"): st.session_state.mode = m; st.rerun()
 
+# 各モードの表示
 if st.session_state.mode == "巨数":
     st.write("単位入力")
     draw_row(["Q", "R", "Y", "Z", "E", "P"])
@@ -162,9 +169,10 @@ if st.session_state.mode == "巨数":
     draw_row(["d", "c", "m", "μ", "n", "p"])
     draw_row(["f", "a", "z", "y", "r", "q"])
 elif st.session_state.mode == "科学計算":
-    st.write("科学関数（度数法を使う場合は数字の後に ° を入れてください）")
-    draw_row(["sin(", "cos(", "tan(", "°", "abs(", "√"])
-    draw_row(["log(", "exp(", "π", "e", "(", ")"])
+    st.write("科学関数（度数法を使う場合は数字の後に ° ）")
+    # 不要なπ, exp, √を削除し、レイアウトを最適化
+    draw_row(["sin(", "cos(", "tan(", "°", "abs(", "log("])
+    draw_row(["(", ")", "e", "", "", ""]) 
 elif st.session_state.mode == "値数":
     st.write("統計・偏差値")
     draw_row(["平均([", "中央値([", "最頻値([", "最大([", "最小([", "])"])
