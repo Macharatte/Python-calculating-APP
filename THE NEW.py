@@ -3,12 +3,12 @@ import math
 import statistics
 import re
 
-# --- ページ設定（スクロール防止と全画面化） ---
+# --- ページ設定（全画面化・スクロール禁止） ---
 st.set_page_config(page_title="Calculator Pro", layout="centered")
 
 st.markdown("""
 <style>
-    /* 全体のスクロールを禁止 */
+    /* 画面全体を固定 */
     html, body, [data-testid="stAppViewContainer"] {
         overflow: hidden !important;
         height: 100vh;
@@ -16,19 +16,19 @@ st.markdown("""
     header {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* 画面の余白を完全排除 */
+    /* 余白をゼロにして横幅いっぱいに */
     .main .block-container { 
         padding: 0px !important; 
         max-width: 100% !important; 
         margin: 0px !important;
     }
     
-    /* ボタンを横長に敷き詰める設定 */
+    /* ボタンを横長に。隙間を埋める */
     div.stButton > button {
         width: 100% !important; 
         height: 60px !important; 
         font-size: 24px !important; 
-        font-weight: 800 !important;
+        font-weight: 900 !important;
         margin: 0px !important; 
         padding: 0px !important;
         border: 1px solid #000 !important;
@@ -37,7 +37,7 @@ st.markdown("""
         color: #000000 !important;
     }
 
-    /* ＝とDELETEボタン（さらに強調） */
+    /* ＝とDELボタン */
     .wide-btn div.stButton > button { 
         height: 75px !important; 
         font-size: 30px !important; 
@@ -52,11 +52,11 @@ st.markdown("""
         color: #fff !important;
     }
 
-    /* カラム間の隙間をゼロにする魔法の指定 */
+    /* カラム間の隙間を強制排除 */
     [data-testid="column"] { padding: 0px !important; margin: 0px !important; flex: 1 1 0% !important; min-width: 0px !important; }
     [data-testid="stHorizontalBlock"] { gap: 0px !important; }
 
-    /* ディスプレイ表示 */
+    /* ディスプレイ */
     .display-box { 
         font-size: 45px; font-weight: bold; text-align: right; 
         padding: 20px; background: #000000; color: #00ff00; 
@@ -64,7 +64,7 @@ st.markdown("""
         font-family: monospace;
     }
     
-    /* タイトル表示 */
+    /* タイトル */
     .calc-title {
         text-align: center; font-size: 20px; font-weight: bold;
         padding: 10px; background: #1a1a1a; color: white;
@@ -72,16 +72,15 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# タイトルの復活
+# タイトル
 st.markdown('<div class="calc-title">SCIENTIFIC CALCULATOR PRO</div>', unsafe_allow_html=True)
 
 if 'formula' not in st.session_state: st.session_state.formula = ""
 if 'mode' not in st.session_state: st.session_state.mode = "通常"
 
-# ディスプレイ表示
 st.markdown(f'<div class="display-box">{st.session_state.formula if st.session_state.formula else "0"}</div>', unsafe_allow_html=True)
 
-# --- 共通入力ロジック ---
+# --- 計算・入力処理 ---
 def on_click(char):
     current = st.session_state.formula
     if current == "Error":
@@ -94,4 +93,59 @@ def on_click(char):
         try:
             f = current.replace('×', '*').replace('÷', '/').replace('−', '-')
             f = f.replace('√', 'math.sqrt').replace('^^', '**').replace('π', 'math.pi')
-            u_map
+            u_map = {'Y':'1e24','M':'1e6','k':'1e3','m':'1e-3','n':'1e-9','p':'1e-12','f':'1e-15','a':'1e-18'}
+            for sym, val in u_map.items(): f = re.sub(rf'(\d+){sym}', rf'(\1*{val})', f)
+            res = eval(f, {"__builtins__": None}, {"math": math, "statistics": statistics})
+            st.session_state.formula = format(res, '.10g')
+        except:
+            st.session_state.formula = "Error"
+    elif char == "C":
+        st.session_state.formula = ""
+    elif char == "del":
+        st.session_state.formula = current[:-1]
+    else:
+        ops = ["+", "×", "÷", "^^"]
+        if not current and char in ops: return
+        if current and current[-1] in (ops + ["−", "."]) and char in (ops + ["−", "."]): return
+        st.session_state.formula += str(char)
+
+def draw_row(labels, is_mode=False):
+    cols = st.columns(len(labels))
+    for i, l in enumerate(labels):
+        if is_mode:
+            if cols[i].button(l, key=f"m_{l}"):
+                st.session_state.mode = l
+                st.rerun()
+        else:
+            if cols[i].button(l, key=f"b_{l}_{i}_{st.session_state.mode}"):
+                on_click(l)
+                st.rerun()
+
+# --- レイアウト配置 ---
+# 右端の列（+ ÷ × −）が縦に並ぶように配置
+draw_row(["7", "8", "9", "+"])
+draw_row(["4", "5", "6", "÷"])
+draw_row(["1", "2", "3", "×"])
+draw_row(["0", ".", "C", "−"])
+
+st.markdown('<div class="wide-btn">', unsafe_allow_html=True)
+c1, c2 = st.columns(2)
+if c1.button("＝", key="eq"): on_click("＝"); st.rerun()
+if c2.button("DEL", key="dl"): on_click("del"); st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown('<div class="mode-btn">', unsafe_allow_html=True)
+draw_row(["通常", "科学計算", "巨数", "値数"], is_mode=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# 特殊機能
+if st.session_state.mode == "通常":
+    draw_row(["(", ")", "00", "π"])
+elif st.session_state.mode == "科学計算":
+    draw_row(["sin(", "cos(", "tan(", "log("])
+    draw_row(["abs(", "√", "exp", "^^"])
+elif st.session_state.mode == "巨数":
+    draw_row(["n", "μ", "m", "k"])
+    draw_row(["M", "G", "T", "P"])
+elif st.session_state.mode == "値数":
+    draw_row(["平均(", "中央値(", "max(", "min("])
