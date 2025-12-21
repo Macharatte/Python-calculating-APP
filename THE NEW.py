@@ -3,71 +3,79 @@ import math
 import statistics
 import re
 
-# --- ページ設定（スクロール防止と全画面化） ---
-st.set_page_config(page_title="Calculator Pro", layout="centered")
+# --- ページ設定 ---
+st.set_page_config(page_title="Scientific Calculator Pro", layout="centered")
 
 st.markdown("""
 <style>
-    /* スクロールを禁止し、画面内に収める */
+    /* スクロール防止と全画面化 */
     html, body, [data-testid="stAppViewContainer"] {
         overflow: hidden !important;
         height: 100vh;
     }
     header {visibility: hidden;}
     footer {visibility: hidden;}
+    
     .main .block-container { 
         padding: 0px !important; 
         max-width: 100% !important; 
         margin: 0px !important;
     }
     
-    /* ボタンの高さを1画面に収まるよう調整 (80px -> 60px前後) */
+    /* ボタンを横長にし、隙間を極限まで詰める */
     div.stButton > button {
         width: 100% !important; 
-        height: 60px !important; 
-        font-size: 22px !important; 
+        height: 55px !important; /* 縦を少し抑えて横長感を強調 */
+        font-size: 20px !important; 
         font-weight: 800 !important;
         margin: 0px !important; 
-        border: 1px solid #000 !important;
+        padding: 0px !important;
+        border: 1px solid #444 !important;
         border-radius: 0px !important;
         background-color: #ffffff !important;
         color: #000000 !important;
     }
 
-    /* ＝とDELETEボタンの高さ */
+    /* ＝とDELETEボタン（さらに横長） */
     .wide-btn div.stButton > button { 
-        height: 75px !important; 
-        font-size: 28px !important; 
-        background-color: #f0f0f0 !important; 
+        height: 65px !important; 
+        font-size: 26px !important; 
+        background-color: #e0e0e0 !important; 
     }
 
-    /* モードボタン専用スタイル */
-    .mode-btn div.stButton > button {
-        height: 45px !important;
-        font-size: 16px !important;
-        background-color: #333 !important;
-        color: #fff !important;
+    /* タイトルのスタイル */
+    .calc-title {
+        text-align: center;
+        font-size: 20px;
+        font-weight: bold;
+        padding: 8px 0px;
+        background-color: #1a1a1a;
+        color: #ffffff;
+        width: 100%;
     }
 
+    /* カラム間の隙間をゼロにする */
     [data-testid="column"] { padding: 0px !important; margin: 0px !important; }
     [data-testid="stHorizontalBlock"] { gap: 0px !important; }
 
     .display-box { 
-        font-size: 42px; font-weight: bold; text-align: right; 
-        padding: 20px; background: #000000; color: #00ff00; 
-        border-bottom: 3px solid #333; min-height: 100px;
+        font-size: 40px; font-weight: bold; text-align: right; 
+        padding: 15px; background: #000000; color: #00ff00; 
+        border-bottom: 2px solid #333; min-height: 90px;
         font-family: monospace;
     }
 </style>
 """, unsafe_allow_html=True)
 
+# タイトルを表示
+st.markdown('<div class="calc-title">SCIENTIFIC CALCULATOR PRO</div>', unsafe_allow_html=True)
+
 if 'formula' not in st.session_state: st.session_state.formula = ""
 if 'mode' not in st.session_state: st.session_state.mode = "通常"
 
-# ディスプレイ表示
+# ディスプレイ
 st.markdown(f'<div class="display-box">{st.session_state.formula if st.session_state.formula else "0"}</div>', unsafe_allow_html=True)
 
-# --- 共通入力ロジック ---
 def on_click(char):
     current = st.session_state.formula
     if current == "Error":
@@ -80,7 +88,7 @@ def on_click(char):
         try:
             f = current.replace('×', '*').replace('÷', '/').replace('−', '-')
             f = f.replace('√', 'math.sqrt').replace('^^', '**').replace('π', 'math.pi')
-            u_map = {'Y':'1e24','M':'1e6','k':'1e3','m':'1e-3','n':'1e-9','p':'1e-12','f':'1e-15','a':'1e-18'}
+            u_map = {'Y':'1e24','M':'1e6','k':'1e3','m':'1e-3','n':'1e-9','p':'1e-12'}
             for sym, val in u_map.items(): f = re.sub(rf'(\d+){sym}', rf'(\1*{val})', f)
             res = eval(f, {"__builtins__": None}, {"math": math, "statistics": statistics})
             st.session_state.formula = format(res, '.10g')
@@ -96,7 +104,6 @@ def on_click(char):
 def draw_row(labels, is_mode=False):
     cols = st.columns(len(labels))
     for i, l in enumerate(labels):
-        # モード切替と通常の入力を分離
         if is_mode:
             if cols[i].button(l, key=f"m_{l}"):
                 st.session_state.mode = l
@@ -106,29 +113,26 @@ def draw_row(labels, is_mode=False):
                 on_click(l)
                 st.rerun()
 
-# --- メインレイアウト（4段＋操作2段＋モード＋機能） ---
-draw_row(["7", "8", "9", "÷"])
-draw_row(["4", "5", "6", "×"])
-draw_row(["1", "2", "3", "−"])
-draw_row(["0", ".", "C", "+"])
+# --- レイアウト（＋を一番上に配置） ---
+draw_row(["+", "÷", "×", "−"]) # 演算子を一番上の行に集約
+draw_row(["7", "8", "9", "C"])
+draw_row(["4", "5", "6", "del"])
+draw_row(["1", "2", "3", "0"])
+draw_row([".", "00", "(", ")"])
 
 st.markdown('<div class="wide-btn">', unsafe_allow_html=True)
 c1, c2 = st.columns(2)
 if c1.button("＝", key="eq"): on_click("＝"); st.rerun()
-if c2.button("DEL", key="dl"): on_click("del"); st.rerun()
+if c2.button("CLEAR ALL", key="ca"): st.session_state.formula = ""; st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
-# モード切替セクション
-st.markdown('<div class="mode-btn">', unsafe_allow_html=True)
+# モード切替
 draw_row(["通常", "科学計算", "巨数", "値数"], is_mode=True)
-st.markdown('</div>', unsafe_allow_html=True)
 
-# モード別ボタン表示（ここも1画面に収まるよう2段まで）
-if st.session_state.mode == "通常":
-    draw_row(["(", ")", "00", "π"])
-elif st.session_state.mode == "科学計算":
+# モード別ボタン
+if st.session_state.mode == "科学計算":
     draw_row(["sin(", "cos(", "tan(", "log("])
-    draw_row(["abs(", "√", "exp", "^^"])
+    draw_row(["abs(", "√", "exp", "π"])
 elif st.session_state.mode == "巨数":
     draw_row(["n", "μ", "m", "k"])
     draw_row(["M", "G", "T", "P"])
