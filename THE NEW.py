@@ -31,15 +31,16 @@ st.markdown("""
 
 st.markdown('<div class="calc-title">python calculator</div>', unsafe_allow_html=True)
 
+# セッション状態の初期化
 if 'formula' not in st.session_state: st.session_state.formula = ""
 if 'mode' not in st.session_state: st.session_state.mode = "通常"
+if 'last_was_equal' not in st.session_state: st.session_state.last_was_equal = False
 
 st.markdown(f'<div class="display-container"><span>{st.session_state.formula if st.session_state.formula else "0"}</span></div>', unsafe_allow_html=True)
 
 # --- カスタム計算関数 ---
 def calculate_t_score(score, data_list):
-    """偏差値を計算する関数"""
-    if len(data_list) < 2: return "Error (Data too short)"
+    if len(data_list) < 2: return "Error"
     sd = statistics.stdev(data_list)
     if sd == 0: return 50.0
     return (score - statistics.mean(data_list)) / sd * 10 + 50
@@ -47,18 +48,27 @@ def calculate_t_score(score, data_list):
 # --- ロジック ---
 def on_click(char):
     current = st.session_state.formula
-    if current == "Error":
-        st.session_state.formula = ""
-        if char in ["=", "delete"]: return
-        current = ""
+    
+    # 1. エラー時または「＝」直後の挙動
+    if current == "Error" or st.session_state.last_was_equal:
+        # 演算子（+, -, ×, ÷, ^^）が押された場合は結果を引き継ぐ
+        operators = ["+", "−", "×", "÷", "^^"]
+        if st.session_state.last_was_equal and char in operators:
+            st.session_state.last_was_equal = False
+        else:
+            # それ以外（数字や関数）が押された場合はクリアして新しく開始
+            st.session_state.formula = ""
+            current = ""
+            st.session_state.last_was_equal = False
+            if char in ["＝", "delete"]: return
 
-    if char == "=":
+    if char == "＝":
         if not current: return
         try:
             f = current.replace('×', '*').replace('÷', '/').replace('−', '-')
             f = f.replace('√', 'math.sqrt').replace('^^', '**').replace('π', 'math.pi').replace('e', 'math.e')
             
-            # SI接頭語（最新版対応：Q, R, Z, E, P, T, G, M, k, h, da, d, c, m, μ, n, p, f, a, z, y, r, q）
+            # SI接頭語置換
             u_map = {
                 'Q': '1e30', 'R': '1e27', 'Y': '1e24', 'Z': '1e21', 'E': '1e18', 'P': '1e15', 'T': '1e12', 'G': '1e9', 'M': '1e6', 'k': '1e3', 'h': '1e2', 'da': '1e1',
                 'd': '1e-1', 'c': '1e-2', 'm': '1e-3', 'μ': '1e-6', 'n': '1e-9', 'p': '1e-12', 'f': '1e-15', 'a': '1e-18', 'z': '1e-21', 'y': '1e-24', 'r': '1e-27', 'q': '1e-30'
@@ -68,23 +78,27 @@ def on_click(char):
             # 統計関数
             f = f.replace('平均', 'statistics.mean').replace('中央値', 'statistics.median').replace('最頻値', 'statistics.mode')
             f = f.replace('最大', 'max').replace('最小', 'min')
-            # 偏差値：偏差値(点数, [リスト]) 形式を想定
             f = re.sub(r'偏差値\((.*?),(\[.*?\])\)', r'calculate_t_score(\1,\2)', f)
             
             res = eval(f, {"__builtins__": None}, {"math": math, "statistics": statistics, "calculate_t_score": calculate_t_score})
             st.session_state.formula = format(res, '.10g')
-        except: st.session_state.formula = "Error"
-    elif char == "delete": st.session_state.formula = ""
+            st.session_state.last_was_equal = True
+        except:
+            st.session_state.formula = "Error"
+            st.session_state.last_was_equal = False
+    elif char == "delete":
+        st.session_state.formula = ""
+        st.session_state.last_was_equal = False
     else:
         # 接頭語のガード
-        prefixes = list(u_map.keys()) if 'u_map' in locals() else ['Q','R','Y','Z','E','P','T','G','M','k','h','da','d','c','m','μ','n','p','f','a','z','y','r','q']
+        prefixes = ['Q','R','Y','Z','E','P','T','G','M','k','h','da','d','c','m','μ','n','p','f','a','z','y','r','q']
         if char in prefixes and (not current or not current[-1].isdigit()): return
         st.session_state.formula += str(char)
 
 def draw_row(labels):
     cols = st.columns(len(labels))
     for i, l in enumerate(labels):
-        if l == "": continue
+        if not l: continue
         if cols[i].button(l, key=f"btn_{l}_{i}_{st.session_state.mode}"):
             on_click(l); st.rerun()
 
@@ -101,7 +115,7 @@ with c2:
 with c3: 
     if st.button("."): on_click("."); st.rerun()
 with c4:
-    if st.button("＝"): on_click("="); st.rerun()
+    if st.button("＝"): on_click("＝"); st.rerun()
 
 st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
 if st.button("delete"): on_click("delete"); st.rerun()
@@ -116,12 +130,15 @@ for i, m in enumerate(modes):
 
 # モード別機能
 if st.session_state.mode == "巨数":
-    st.write("単位（最新SI接頭語対応）")
+    st.write("単位入力")
     draw_row(["Q", "R", "Y", "Z", "E", "P"])
     draw_row(["T", "G", "M", "k", "h", "da"])
     draw_row(["d", "c", "m", "μ", "n", "p"])
     draw_row(["f", "a", "z", "y", "r", "q"])
+elif st.session_state.mode == "科学計算":
+    st.write("科学関数")
+    draw_row(["sin(", "cos(", "tan(", "log(", "exp(", "abs("])
 elif st.session_state.mode == "値数":
-    st.write("統計・偏差値（リストは [1,2,3] 形式で入力）")
+    st.write("統計・偏差値")
     draw_row(["平均([", "中央値([", "最頻値([", "最大([", "最小([", "])"])
     draw_row(["偏差値(", ",", "", "", "", ""])
