@@ -6,29 +6,35 @@ import re
 # --- ページ設定 ---
 st.set_page_config(page_title="Python Calculator", layout="centered")
 
-# --- 究極のデザインCSS（スマホ・iPad両対応） ---
+# --- スマホ完全対応CSS（横スクロール禁止・横並び維持） ---
 st.markdown("""
 <style>
+    /* ページ全体のスクロール制御 */
+    html, body, [data-testid="stAppViewContainer"] {
+        overflow-x: hidden !important;
+        width: 100vw;
+    }
+
     header {visibility: hidden;}
-    /* 横スクロールを完全に禁止し、中央に寄せる */
+    
     .main .block-container { 
-        padding: 1rem 0.5rem;
-        max-width: 600px;
-        overflow-x: hidden;
+        padding: 1rem 0.3rem !important; /* 余白を最小化 */
+        max-width: 100% !important;
+        overflow-x: hidden !important;
     }
     
-    /* グリッドレイアウトの強制 */
+    /* 横並びを強制し、はみ出さないように自動縮小 */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
-        flex-wrap: nowrap !important; /* 横並びを維持 */
-        gap: 4px !important;
-        margin-bottom: 4px !important;
+        flex-wrap: nowrap !important;
+        gap: 2px !important; /* ボタン間の隙間を詰め、横並びを死守 */
+        width: 100% !important;
     }
 
     [data-testid="column"] {
         flex: 1 !important;
-        min-width: 0 !important;
+        min-width: 0 !important; /* カラムが広がるのを防ぐ */
     }
 
     :root {
@@ -46,49 +52,50 @@ st.markdown("""
     }
 
     .calc-title { 
-        text-align: center; font-size: 28px; font-weight: 800; 
+        text-align: center; font-size: 24px; font-weight: 800; 
         margin-bottom: 5px;
     }
     
     .display-container {
         display: flex; align-items: center; justify-content: flex-end;
         font-size: 35px; font-weight: bold;
-        margin-bottom: 10px; padding: 15px 10px; 
+        margin-bottom: 10px; padding: 10px; 
         border-bottom: 3px solid currentColor;
-        min-height: 80px; word-break: break-all;
+        min-height: 70px; word-break: break-all;
+        width: 100%;
+        box-sizing: border-box;
     }
 
-    /* ボタンの形状を押しやすく（細長くならないよう調整） */
+    /* ボタンのデザイン調整 */
     div.stButton > button {
         width: 100% !important; 
-        height: 60px !important; /* 高さをしっかり出す */
-        font-size: 18px !important;
-        border-radius: 10px !important;
+        height: 55px !important; 
+        font-size: 15px !important; /* スマホで入り切るサイズ */
+        border-radius: 8px !important;
         border: 1px solid var(--border-color) !important; 
         background-color: var(--bg-color) !important;
         color: var(--text-color) !important; 
         font-weight: bold !important;
-        display: flex; align-items: center; justify-content: center;
+        padding: 0 !important;
     }
     
     .delete-btn div.stButton > button {
         background-color: #FF0000 !important; color: white !important;
-        height: 65px !important; font-size: 22px !important;
+        height: 60px !important; font-size: 20px !important;
         border: none !important;
     }
 
-    /* PC/iPadなどの広い画面用の調整 */
+    /* PC/iPad用の広い画面では文字を大きく */
     @media (min-width: 600px) {
+        div.stButton > button { font-size: 20px !important; height: 70px !important; }
         .calc-title { font-size: 42px; }
         .display-container { font-size: 50px; }
-        div.stButton > button { height: 70px !important; font-size: 22px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="calc-title">python calculator</div>', unsafe_allow_html=True)
 
-# セッション状態管理
 if 'formula' not in st.session_state: st.session_state.formula = ""
 if 'mode' not in st.session_state: st.session_state.mode = "通常"
 if 'last_was_equal' not in st.session_state: st.session_state.last_was_equal = False
@@ -136,7 +143,7 @@ def draw_row(labels):
         if cols[i].button(l, key=f"btn_{l}_{i}_{st.session_state.mode}"):
             on_click(l); st.rerun()
 
-# メインレイアウト（6列均等）
+# レイアウト（すべてのデバイスで6列維持）
 draw_row(["7", "8", "9", "π", "÷", "+"])
 draw_row(["4", "5", "6", "e", "√", "−"])
 draw_row(["1", "2", "3", "i", "^^", "×"])
