@@ -6,67 +6,55 @@ import re
 # --- ページ設定 ---
 st.set_page_config(page_title="Python Calculator", layout="centered")
 
-# --- スマホ・PC共用：黄金比レイアウトCSS ---
+# --- デバイス別・最適化CSS ---
 st.markdown("""
 <style>
-    /* 1. ページ全体の余白をゼロにして横幅を使い切る */
+    /* 1. 全体のスクロールと余白の制限 */
     html, body, [data-testid="stAppViewContainer"] {
         overflow-x: hidden !important;
-        width: 100%;
+        width: 100vw;
     }
-    
     header {visibility: hidden;}
 
     .main .block-container { 
-        padding: 0.5rem 0.2rem !important; 
+        padding: 1rem 0.5rem !important; 
         max-width: 600px !important;
-        margin: 0 auto;
     }
 
-    /* 2. カラムが細くならないように設定 */
-    [data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 3px !important; /* ボタン同士の隙間 */
-        width: 100% !important;
-    }
-
-    [data-testid="column"] {
-        flex: 1 1 auto !important;
-        min-width: 0px !important; 
-    }
-
-    /* 3. ボタンのデザイン（高さを出して押しやすく） */
+    /* 2. ボタンの基本デザイン */
     div.stButton > button {
         width: 100% !important; 
-        height: 60px !important; /* スマホでもしっかりした高さ */
-        font-size: 18px !important;
-        border-radius: 8px !important;
-        padding: 0 !important;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        height: 65px !important; /* 高さをしっかり確保 */
+        font-size: 20px !important;
+        border-radius: 12px !important;
         font-weight: bold !important;
         background-color: var(--bg-color) !important;
         color: var(--text-color) !important;
-        border: 1px solid var(--border-color) !important;
+        border: 2px solid var(--border-color) !important;
+        transition: 0.2s;
     }
 
-    /* 4. ディスプレイ（数字表示部） */
+    /* 3. スマホでボタンが細くなるのを防ぐためのグリッド設定 */
+    /* 画面幅が600px以下の時（スマホ） */
+    @media (max-width: 600px) {
+        [data-testid="stHorizontalBlock"] {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important; /* スマホは3列にする */
+            gap: 8px !important;
+        }
+        div.stButton > button {
+            height: 70px !important; /* スマホではさらに押しやすく大きく */
+            font-size: 22px !important;
+        }
+    }
+
+    /* 4. ディスプレイ表示 */
     .display-container {
-        display: flex; 
-        align-items: center; 
-        justify-content: flex-end;
-        font-size: 42px; 
-        font-weight: bold;
-        margin-bottom: 15px; 
-        padding: 10px; 
-        border-bottom: 3px solid currentColor;
-        min-height: 80px; 
-        word-break: break-all;
-        width: 100%;
-        box-sizing: border-box;
+        display: flex; align-items: center; justify-content: flex-end;
+        font-size: 40px; font-weight: bold;
+        margin-bottom: 20px; padding: 15px; 
+        border-bottom: 4px solid currentColor;
+        min-height: 90px; word-break: break-all;
     }
 
     /* カラー設定 */
@@ -76,15 +64,11 @@ st.markdown("""
     }
 
     .delete-btn div.stButton > button {
-        background-color: #FF0000 !important; 
-        color: white !important;
-        height: 65px !important; 
-        font-size: 22px !important;
-        border: none !important;
+        background-color: #FF0000 !important; color: white !important;
+        height: 70px !important; border: none !important; margin-top: 10px;
     }
 
-    .calc-title { text-align: center; font-size: 28px; font-weight: 800; margin-bottom: 10px; }
-
+    .calc-title { text-align: center; font-size: 32px; font-weight: 800; margin-bottom: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -96,13 +80,14 @@ if 'last_was_equal' not in st.session_state: st.session_state.last_was_equal = F
 
 st.markdown(f'<div class="display-container"><span>{st.session_state.formula if st.session_state.formula else "0"}</span></div>', unsafe_allow_html=True)
 
-# --- ボタンクリック処理 ---
+# --- 計算ロジック ---
 def on_click(char):
     current = st.session_state.formula
     operators = ["+", "−", "×", "÷", "^^", ".", "°"]
     if st.session_state.last_was_equal:
         if char in operators: st.session_state.last_was_equal = False
         else: current = ""; st.session_state.formula = ""; st.session_state.last_was_equal = False
+    
     if char == "＝":
         if not current: return
         try:
@@ -112,7 +97,6 @@ def on_click(char):
             f = f.replace('sin', 'math.sin').replace('cos', 'math.cos').replace('tan', 'math.tan').replace('abs', 'abs').replace('log', 'math.log10')
             u_map = {'Q':'1e30','R':'1e27','Y':'1e24','Z':'1e21','E':'1e18','P':'1e15','T':'1e12','G':'1e9','M':'1e6','k':'1e3','h':'1e2','da':'1e1','d':'1e-1','c':'1e-2','m':'1e-3','μ':'1e-6','n':'1e-9','p':'1e-12','f':'1e-15','a':'1e-18','z':'1e-21','y':'1e-24','r':'1e-27','q':'1e-30'}
             for sym, val in u_map.items(): f = re.sub(rf'(\d+){sym}', rf'(\1*{val})', f)
-            f = f.replace('平均', 'statistics.mean').replace('中央値', 'statistics.median').replace('最頻値', 'statistics.mode').replace('最大', 'max').replace('最小', 'min')
             res = eval(f, {"__builtins__": None}, {"math": math, "statistics": statistics, "abs": abs})
             st.session_state.formula = format(res, '.10g')
             st.session_state.last_was_equal = True
@@ -126,39 +110,39 @@ def on_click(char):
             st.session_state.formula = current[:-1] + str(char); return
         st.session_state.formula += str(char)
 
-def draw_row(labels):
-    cols = st.columns(len(labels))
-    for i, l in enumerate(labels):
-        if not l: continue
-        if cols[i].button(l, key=f"btn_{l}_{i}_{st.session_state.mode}"):
-            on_click(l); st.rerun()
+# --- ボタン配置 ---
+# 通常モードのボタン（スマホでは自動で3列に折り返されます）
+buttons = ["7", "8", "9", "π", "÷", "+", "4", "5", "6", "e", "√", "−", "1", "2", "3", "i", "^^", "×", "(", ")", "0", "00", ".", "＝"]
 
-# レイアウト（6列固定）
-draw_row(["7", "8", "9", "π", "÷", "+"])
-draw_row(["4", "5", "6", "e", "√", "−"])
-draw_row(["1", "2", "3", "i", "^^", "×"])
-draw_row(["(", ")", "0", "00", ".", "＝"])
+cols = st.columns(6) # 内部的には6列で作るが、CSSでスマホ時は3列に強制
+for i, b in enumerate(buttons):
+    with cols[i % 6]:
+        if st.button(b, key=f"btn_{b}"):
+            on_click(b); st.rerun()
 
 st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
 if st.button("delete", use_container_width=True): on_click("delete"); st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
+# モード切替
 st.write("---")
 m_cols = st.columns(4)
 modes = ["通常", "科学計算", "巨数", "値数"]
-for i, m in enumerate(modes):
-    if m_cols[i].button(m, key=f"m_{m}"): st.session_state.mode = m; st.rerun()
+for m_idx, m_name in enumerate(modes):
+    if m_cols[m_idx].button(m_name): st.session_state.mode = m_name; st.rerun()
 
-if st.session_state.mode == "巨数":
-    st.write("単位入力")
-    draw_row(["Q", "R", "Y", "Z", "E", "P"])
-    draw_row(["T", "G", "M", "k", "h", "da"])
-    draw_row(["d", "c", "m", "μ", "n", "p"])
-    draw_row(["f", "a", "z", "y", "r", "q"])
-elif st.session_state.mode == "科学計算":
-    st.write("科学関数（度数法は ° ）")
-    draw_row(["sin(", "cos(", "tan(", "°", "abs(", "log("])
-    draw_row(["(", ")", "e", "π", "√", ""]) 
-elif st.session_state.mode == "値数":
-    st.write("統計・偏差値")
-    draw_row(["平均([", "中央値([", "最頻値([", "最大([", "最小([", "])"])
+# 各モードの追加ボタン（スマホ3列対応）
+if st.session_state.mode != "通常":
+    st.write(f"### {st.session_state.mode} モード")
+    extra_buttons = []
+    if st.session_state.mode == "巨数":
+        extra_buttons = ["Q", "R", "Y", "Z", "E", "P", "T", "G", "M", "k", "h", "da", "d", "c", "m", "μ", "n", "p", "f", "a", "z", "y", "r", "q"]
+    elif st.session_state.mode == "科学計算":
+        extra_buttons = ["sin(", "cos(", "tan(", "°", "abs(", "log(", "(", ")", "e", "π", "√"]
+    elif st.session_state.mode == "値数":
+        extra_buttons = ["平均([", "中央値([", "最頻値([", "最大([", "最小([", "])"]
+    
+    e_cols = st.columns(6)
+    for i, b in enumerate(extra_buttons):
+        with e_cols[i % 6]:
+            if st.button(b, key=f"extra_{b}"): on_click(b); st.rerun()
