@@ -12,15 +12,12 @@ st.markdown("""
     header {visibility: hidden;}
     .main .block-container { padding-top: 1rem; max-width: 600px; }
     
-    /* 変数の定義（ライト/ダークで切り替わる） */
     :root {
         --bg-color: #000000;
         --text-color: #ffffff;
         --border-color: #333333;
-        --display-text: #000000;
     }
 
-    /* OSがダークモードの場合、配色を反転（白背景・黒文字風） */
     @media (prefers-color-scheme: dark) {
         :root {
             --bg-color: #ffffff;
@@ -38,10 +35,9 @@ st.markdown("""
         display: flex; align-items: center; justify-content: flex-end;
         font-size: 50px; font-weight: bold;
         margin-bottom: 15px; padding: 10px; border-bottom: 3px solid currentColor;
-        min-height: 80px;
+        min-height: 80px; word-break: break-all;
     }
 
-    /* ボタン：OS設定に従って色が反転 */
     div.stButton > button {
         width: 100% !important; height: 55px !important;
         font-size: 20px !important; border-radius: 8px !important;
@@ -50,7 +46,6 @@ st.markdown("""
         color: var(--text-color) !important; font-weight: bold !important;
     }
     
-    /* delete ボタン：常に赤で視認性を確保 */
     .delete-btn div.stButton > button {
         background-color: #FF0000 !important; color: white !important;
         height: 60px !important; font-size: 22px !important; margin-top: 10px !important;
@@ -79,7 +74,7 @@ def on_click(char):
     current = st.session_state.formula
     operators = ["+", "−", "×", "÷", "^^", "."]
 
-    # 計算直後の処理
+    # 「＝」直後の挙動
     if st.session_state.last_was_equal:
         if char in operators:
             st.session_state.last_was_equal = False
@@ -104,16 +99,24 @@ def on_click(char):
     elif char == "delete":
         st.session_state.formula = ""
     else:
-        # --- 入力バグ防止ロジック ---
-        # 1. 先頭に演算子を打たせない (マイナスはOK)
-        if not current and char in ["+", "×", "÷", "^^", "."]: return
-        
-        # 2. 演算子の連続入力を防ぐ
-        if current and current[-1] in operators and char in operators: return
-        
+        # --- 入力ロジックの修正 ---
+        # 1. 式が空の時、マイナス以外の演算子は無視
+        if not current:
+            if char in ["+", "×", "÷", "^^", "."]:
+                return
+            st.session_state.formula += str(char)
+            return
+
+        # 2. 演算子が連続した場合の「切り替え」処理
+        if current[-1] in operators and char in operators:
+            # 最後の1文字を消して、新しい演算子を追加
+            st.session_state.formula = current[:-1] + str(char)
+            return
+
         # 3. SI接頭語ガード
         prefixes = ['Q','R','Y','Z','E','P','T','G','M','k','h','da','d','c','m','μ','n','p','f','a','z','y','r','q']
-        if char in prefixes and (not current or not current[-1].isdigit()): return
+        if char in prefixes and not current[-1].isdigit():
+            return
 
         st.session_state.formula += str(char)
 
