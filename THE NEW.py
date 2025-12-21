@@ -3,149 +3,105 @@ import math
 import statistics
 import re
 
-# --- ページ設定（全画面化・スクロール禁止） ---
-st.set_page_config(page_title="Calculator Pro", layout="centered")
+# --- ページ設定 ---
+st.set_page_config(page_title="Python Calculator", layout="centered")
 
+# --- カスタムデザインCSS ---
 st.markdown("""
 <style>
-    /* 画面全体を固定 */
-    html, body, [data-testid="stAppViewContainer"] {
-        overflow: hidden !important;
-        height: 100vh;
-    }
     header {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    /* 余白をゼロにして横幅いっぱいに */
-    .main .block-container { 
-        padding: 0px !important; 
-        max-width: 100% !important; 
-        margin: 0px !important;
-    }
-    
-    /* ボタンを横長に。隙間を埋める */
-    div.stButton > button {
-        width: 100% !important; 
-        height: 60px !important; 
-        font-size: 24px !important; 
-        font-weight: 900 !important;
-        margin: 0px !important; 
-        padding: 0px !important;
-        border: 1px solid #000 !important;
-        border-radius: 0px !important;
-        background-color: #ffffff !important;
-        color: #000000 !important;
-    }
-
-    /* ＝とDELボタン */
-    .wide-btn div.stButton > button { 
-        height: 75px !important; 
-        font-size: 30px !important; 
-        background-color: #e0e0e0 !important; 
-    }
-
-    /* モードボタン */
-    .mode-btn div.stButton > button {
-        height: 45px !important;
-        font-size: 16px !important;
-        background-color: #333 !important;
-        color: #fff !important;
-    }
-
-    /* カラム間の隙間を強制排除 */
-    [data-testid="column"] { padding: 0px !important; margin: 0px !important; flex: 1 1 0% !important; min-width: 0px !important; }
-    [data-testid="stHorizontalBlock"] { gap: 0px !important; }
-
-    /* ディスプレイ */
-    .display-box { 
-        font-size: 45px; font-weight: bold; text-align: right; 
-        padding: 20px; background: #000000; color: #00ff00; 
-        border-bottom: 2px solid #333; min-height: 100px;
-        font-family: monospace;
-    }
+    .main .block-container { padding-top: 2rem; max-width: 500px; }
     
     /* タイトル */
-    .calc-title {
-        text-align: center; font-size: 20px; font-weight: bold;
-        padding: 10px; background: #1a1a1a; color: white;
+    .calc-title { text-align: center; font-size: 32px; font-weight: bold; margin-bottom: 20px; font-family: sans-serif; }
+    
+    /* ディスプレイ（入力欄） */
+    .stTextInput input {
+        font-size: 30px !important; height: 60px !important; text-align: right !important;
+        background-color: #f8f9fa !important; border: 1px solid #ced4da !important;
     }
+
+    /* 基本ボタン */
+    div.stButton > button {
+        width: 100% !important; height: 50px !important;
+        font-size: 18px !important; border-radius: 8px !important;
+        border: 1px solid #ccc !important; background-color: #fff !important; color: #333 !important;
+    }
+
+    /* 緑色の＝ボタン */
+    .equal-btn div.stButton > button {
+        background-color: #5cb85c !important; color: white !important; border: none !important;
+        height: 60px !important; font-size: 24px !important;
+    }
+
+    /* オレンジ色のM+ボタン */
+    .mem-btn div.stButton > button {
+        background-color: #f0ad4e !important; color: white !important; border: none !important;
+    }
+
+    /* 水色のモードボタン */
+    .mode-btn div.stButton > button {
+        background-color: #add8e6 !important; color: #333 !important; border: none !important;
+        height: 40px !important; font-size: 14px !important;
+    }
+
+    [data-testid="column"] { padding: 3px !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# タイトル
-st.markdown('<div class="calc-title">SCIENTIFIC CALCULATOR PRO</div>', unsafe_allow_html=True)
+st.markdown('<div class="calc-title">python calculator</div>', unsafe_allow_html=True)
 
 if 'formula' not in st.session_state: st.session_state.formula = ""
-if 'mode' not in st.session_state: st.session_state.mode = "通常"
+if 'mode' not in st.session_state: st.session_state.mode = "Normal"
 
-st.markdown(f'<div class="display-box">{st.session_state.formula if st.session_state.formula else "0"}</div>', unsafe_allow_html=True)
+# ディスプレイ
+st.text_input("", value=st.session_state.formula if st.session_state.formula else "0", key="display", disabled=True)
 
-# --- 計算・入力処理 ---
 def on_click(char):
-    current = st.session_state.formula
-    if current == "Error":
-        st.session_state.formula = ""
-        if char in ["＝", "C", "del"]: return
-        current = ""
-
-    if char == "＝":
-        if not current: return
+    if st.session_state.formula == "Error": st.session_state.formula = ""
+    
+    if char == "=":
         try:
-            f = current.replace('×', '*').replace('÷', '/').replace('−', '-')
-            f = f.replace('√', 'math.sqrt').replace('^^', '**').replace('π', 'math.pi')
-            u_map = {'Y':'1e24','M':'1e6','k':'1e3','m':'1e-3','n':'1e-9','p':'1e-12','f':'1e-15','a':'1e-18'}
-            for sym, val in u_map.items(): f = re.sub(rf'(\d+){sym}', rf'(\1*{val})', f)
+            f = st.session_state.formula.replace('×', '*').replace('÷', '/').replace('−', '-')
+            # 数学的置換
+            f = f.replace('^', '**').replace('π', 'math.pi').replace('e', 'math.e')
             res = eval(f, {"__builtins__": None}, {"math": math, "statistics": statistics})
             st.session_state.formula = format(res, '.10g')
-        except:
-            st.session_state.formula = "Error"
-    elif char == "C":
-        st.session_state.formula = ""
-    elif char == "del":
-        st.session_state.formula = current[:-1]
-    else:
-        ops = ["+", "×", "÷", "^^"]
-        if not current and char in ops: return
-        if current and current[-1] in (ops + ["−", "."]) and char in (ops + ["−", "."]): return
-        st.session_state.formula += str(char)
+        except: st.session_state.formula = "Error"
+    elif char == "C": st.session_state.formula = ""
+    elif char == "del": st.session_state.formula = st.session_state.formula[:-1]
+    else: st.session_state.formula += str(char)
 
-def draw_row(labels, is_mode=False):
+def draw_row(labels, css_class=""):
     cols = st.columns(len(labels))
     for i, l in enumerate(labels):
-        if is_mode:
-            if cols[i].button(l, key=f"m_{l}"):
-                st.session_state.mode = l
-                st.rerun()
-        else:
-            if cols[i].button(l, key=f"b_{l}_{i}_{st.session_state.mode}"):
-                on_click(l)
-                st.rerun()
+        with cols[i]:
+            if st.button(l, key=f"btn_{l}_{i}_{st.session_state.mode}"):
+                on_click(l); st.rerun()
 
-# --- レイアウト配置 ---
-# 右端の列（+ ÷ × −）が縦に並ぶように配置
-draw_row(["7", "8", "9", "+"])
-draw_row(["4", "5", "6", "÷"])
-draw_row(["1", "2", "3", "×"])
-draw_row(["0", ".", "C", "−"])
+# --- 6列ボタン配置 ---
+draw_row(["sin", "cos", "tan", "e", "log", "π"])
+draw_row(["abs", "round", "min", "max", "(", "e"]) # デザイン画像に基づく
+draw_row(["4", "5", "6", "3", ")", "^"])
+draw_row(["()", "000", "0", "C", "del", "i"])
 
-st.markdown('<div class="wide-btn">', unsafe_allow_html=True)
-c1, c2 = st.columns(2)
-if c1.button("＝", key="eq"): on_click("＝"); st.rerun()
-if c2.button("DEL", key="dl"): on_click("del"); st.rerun()
+# --- 特殊ボタン（＝, M+） ---
+st.markdown('<div class="equal-btn">', unsafe_allow_html=True)
+if st.button("＝", key="eq_main"): on_click("="); st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
+st.markdown('<div class="mem-btn">', unsafe_allow_html=True)
+if st.button("M+", key="mem_add"): pass # メモリ機能が必要な場合はここに追加
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.write("")
+
+# --- モードボタン ---
 st.markdown('<div class="mode-btn">', unsafe_allow_html=True)
-draw_row(["通常", "科学計算", "巨数", "値数"], is_mode=True)
+m_cols = st.columns(4)
+modes = ["Normal", "Sci", "Big", "Val"]
+for i, m in enumerate(modes):
+    if m_cols[i].button(m, key=f"mode_{m}"):
+        st.session_state.mode = m
+        st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
-
-# 特殊機能
-if st.session_state.mode == "通常":
-    draw_row(["(", ")", "00", "π"])
-elif st.session_state.mode == "科学計算":
-    draw_row(["sin(", "cos(", "tan(", "log("])
-    draw_row(["abs(", "√", "exp", "^^"])
-elif st.session_state.mode == "巨数":
-    draw_row(["n", "μ", "m", "k"])
-    draw_row(["M", "G", "T", "P"])
-elif st.session_state.mode == "値数":
-    draw_row(["平均(", "中央値(", "max(", "min("])
