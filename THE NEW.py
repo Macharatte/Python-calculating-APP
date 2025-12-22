@@ -109,23 +109,21 @@ def on_click(char):
             st.session_state.formula = current[:-1] + str(char); return
         st.session_state.formula += str(char)
 
-# --- キーパッド配置 (6列) ---
-# 左側1-4列目: 数字と定数 / 5列目: 特殊記号と(-) / 6列目: 四則演算
+# --- キーパッド配置 (6列固定) ---
+# 各縦列に4つずつ
 main_btns = [
-    "7", "8", "9", "π", "√",  "+", 
-    "4", "5", "6", "e", "^^", "−", 
-    "1", "2", "3", "i", "(",  "×", 
-    "0", "00", ".", " ", ")", "÷", 
-    " ", " ", " ", " ", "(-)", " "
+    "7", "8", "9", "π", "√",  "+", # 1行目
+    "4", "5", "6", "e", "^^", "−", # 2行目
+    "1", "2", "3", "i", "(-)", "×", # 3行目 ((-)は^^の下)
+    "0", "00", ".", "(", ")", "÷"  # 4行目 ((はiの下)
 ]
 
 cols = st.columns(6)
 for i, b in enumerate(main_btns):
-    if b == " ": continue
     with cols[i % 6]:
         if st.button(b, key=f"kb_{b}_{i}"): on_click(b); st.rerun()
 
-# 下部 ＝ と delete (50/50)
+# --- 5行目: delete と ＝ (50/50) ---
 st.markdown('<div class="bottom-row">', unsafe_allow_html=True)
 b_cols = st.columns(2)
 with b_cols[0]:
@@ -146,21 +144,20 @@ modes = ["通常", "科学計算", "巨数", "値数", "履歴"]
 for i, m in enumerate(modes):
     if m_cols[i].button(m, key=f"m_{m}"): st.session_state.mode = m; st.rerun()
 
-# 各モードのボタン表示
-if st.session_state.mode == "履歴":
-    st.write("### 計算履歴")
-    for i, item in enumerate(st.session_state.history):
-        if st.button(f"[{item['t']}] {item['f']} = {item['r']}", key=f"h_{i}", use_container_width=True):
-            st.session_state.formula = item['r']; st.session_state.mode = "通常"; st.rerun()
-    if st.session_state.history and st.button("クリア"): st.session_state.history = []; st.rerun()
-elif st.session_state.mode != "通常":
+# モード別ボタン表示
+if st.session_state.mode != "通常":
     st.write(f"### {st.session_state.mode} モード")
-    extra = []
-    if st.session_state.mode == "巨数": extra = ["Q", "R", "Y", "Z", "E", "P", "T", "G", "M", "k", "h", "da", "d", "c", "m", "μ", "n", "p", "f", "a", "z", "y", "r", "q"]
-    elif st.session_state.mode == "科学計算": extra = ["sin(", "cos(", "tan(", "°", "abs(", "log(", "(", ")", "e", "π", "√"]
-    elif st.session_state.mode == "値数": extra = ["平均([", "中央値([", "最頻値([", "最大([", "最小([", "])", "偏差値(", "期待値(", ","]
-    
-    e_cols = st.columns(6)
-    for i, b in enumerate(extra):
-        with e_cols[i % 6]:
-            if st.button(b, key=f"ex_{b}"): on_click(b); st.rerun()
+    if st.session_state.mode == "履歴":
+        for i, item in enumerate(st.session_state.history):
+            if st.button(f"[{item['t']}] {item['f']} = {item['r']}", key=f"h_{i}", use_container_width=True):
+                st.session_state.formula = item['r']; st.session_state.mode = "通常"; st.rerun()
+        if st.session_state.history and st.button("クリア"): st.session_state.history = []; st.rerun()
+    else:
+        extra = []
+        if st.session_state.mode == "巨数": extra = ["Q", "R", "Y", "Z", "E", "P", "T", "G", "M", "k", "h", "da", "d", "c", "m", "μ", "n", "p", "f", "a", "z", "y", "r", "q"]
+        elif st.session_state.mode == "科学計算": extra = ["sin(", "cos(", "tan(", "°", "abs(", "log(", "(", ")", "e", "π", "√"]
+        elif st.session_state.mode == "値数": extra = ["平均([", "中央値([", "最頻値([", "最大([", "最小([", "])", "偏差値(", "期待値(", ","]
+        e_cols = st.columns(6)
+        for i, b in enumerate(extra):
+            with e_cols[i % 6]:
+                if st.button(b, key=f"ex_{b}"): on_click(b); st.rerun()
