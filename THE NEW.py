@@ -110,13 +110,13 @@ def on_click(char):
         st.session_state.formula += str(char)
 
 # --- キーパッド配置 (6列) ---
-# 右側縦列を (-), +, −, ×, ÷ に固定
+# 左側1-4列目: 数字と定数 / 5列目: 特殊記号と(-) / 6列目: 四則演算
 main_btns = [
-    "7", "8", "9", "π", "√", "(-)", 
-    "4", "5", "6", "e", "^^", "+", 
-    "1", "2", "3", "i", "(",  "−", 
-    "0", "00", ".", ")", " ", "×", 
-    " ", " ", " ", " ", " ", "÷"
+    "7", "8", "9", "π", "√",  "+", 
+    "4", "5", "6", "e", "^^", "−", 
+    "1", "2", "3", "i", "(",  "×", 
+    "0", "00", ".", " ", ")", "÷", 
+    " ", " ", " ", " ", "(-)", " "
 ]
 
 cols = st.columns(6)
@@ -125,7 +125,7 @@ for i, b in enumerate(main_btns):
     with cols[i % 6]:
         if st.button(b, key=f"kb_{b}_{i}"): on_click(b); st.rerun()
 
-# 下部 ＝ と delete
+# 下部 ＝ と delete (50/50)
 st.markdown('<div class="bottom-row">', unsafe_allow_html=True)
 b_cols = st.columns(2)
 with b_cols[0]:
