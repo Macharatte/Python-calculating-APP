@@ -6,7 +6,7 @@ import re
 # --- ページ設定 ---
 st.set_page_config(page_title="Python Calculator", layout="centered")
 
-# --- デザインCSS（スマホ3列・PC6列のレスポンシブ） ---
+# --- デザインCSS（間隔調整とレスポンシブ対応） ---
 st.markdown("""
 <style>
     html, body, [data-testid="stAppViewContainer"] {
@@ -55,10 +55,20 @@ st.markdown("""
         :root { --bg-color: #ffffff; --text-color: #000000; --border-color: #dddddd; }
     }
 
+    /* Deleteボタンのデザイン */
     .delete-btn div.stButton > button {
         background-color: #FF0000 !important; color: white !important;
-        height: 70px !important; border: none !important; margin-top: 10px;
+        height: 70px !important; border: none !important;
+        margin-bottom: 0px !important; /* 下の余白を消去 */
     }
+
+    /* モード切替エリアの間隔を狭める */
+    .mode-divider {
+        margin: 10px 0 !important;
+        padding: 0 !important;
+        opacity: 0.5;
+    }
+
     .calc-title { text-align: center; font-size: 32px; font-weight: 800; margin-bottom: 10px; }
 </style>
 """, unsafe_allow_html=True)
@@ -78,7 +88,6 @@ def calculate_t_score(score, data_list):
 
 def on_click(char):
     current = st.session_state.formula
-    # マイナス以外の演算子リスト
     restricted_operators = ["+", "×", "÷", "^^", ".", "°"]
     all_operators = ["+", "−", "×", "÷", "^^", ".", "°"]
 
@@ -105,13 +114,22 @@ def on_click(char):
         except: st.session_state.formula = "Error"
     elif char == "delete": st.session_state.formula = ""
     else:
-        # 入力ガード：式が空の時、マイナス以外の演算子は打てない
+        # 入力ガード：式が空の時
         if not current:
-            if char in restricted_operators: return
-            st.session_state.formula += str(char); return
-        # 演算子の連続入力を上書き
+            if char in restricted_operators: return # マイナス以外は無視
+            st.session_state.formula += str(char)
+            return
+        
+        # 式の最初が「−」1文字だけの時
+        if current == "−":
+            if char in all_operators: return # 切り替えを無効化（マイナスを守る）
+            st.session_state.formula += str(char)
+            return
+
+        # 通常の演算子切り替え（2文字目以降）
         if current[-1] in all_operators and char in all_operators:
-            st.session_state.formula = current[:-1] + str(char); return
+            st.session_state.formula = current[:-1] + str(char)
+            return
         st.session_state.formula += str(char)
 
 # メインボタン
@@ -121,11 +139,15 @@ for i, b in enumerate(buttons):
     with cols[i % 6]:
         if st.button(b, key=f"btn_{b}"): on_click(b); st.rerun()
 
+# Deleteボタンエリア
 st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
 if st.button("delete", use_container_width=True): on_click("delete"); st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.write("---")
+# 間隔を詰めた仕切り
+st.markdown('<hr class="mode-divider">', unsafe_allow_html=True)
+
+# モード切替
 m_cols = st.columns(4)
 modes = ["通常", "科学計算", "巨数", "値数"]
 for m_idx, m_name in enumerate(modes):
@@ -139,7 +161,6 @@ if st.session_state.mode != "通常":
     elif st.session_state.mode == "科学計算":
         extra_buttons = ["sin(", "cos(", "tan(", "°", "abs(", "log(", "(", ")", "e", "π", "√"]
     elif st.session_state.mode == "値数":
-        # 偏差値計算に必要な「,」を追加
         extra_buttons = ["平均([", "中央値([", "最頻値([", "最大([", "最小([", "])", "偏差値(", ","]
     
     e_cols = st.columns(6)
