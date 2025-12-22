@@ -2,7 +2,7 @@ import streamlit as st
 import math
 import statistics
 import re
-import datetime # 履歴にタイムスタンプを追加するため
+import datetime
 
 # --- ページ設定 ---
 st.set_page_config(page_title="Python Calculator", layout="centered")
@@ -56,53 +56,28 @@ st.markdown("""
         :root { --bg-color: #ffffff; --text-color: #000000; --border-color: #dddddd; }
     }
 
-    /* Deleteボタンのデザイン */
     .delete-btn div.stButton > button {
         background-color: #FF0000 !important; color: white !important;
         height: 70px !important; border: none !important;
-        margin-bottom: 0px !important;
     }
 
-    /* モード切替エリアの間隔を狭める */
-    .mode-divider {
-        margin: 10px 0 !important;
-        padding: 0 !important;
-        opacity: 0.5;
-    }
+    .mode-divider { margin: 10px 0 !important; padding: 0 !important; opacity: 0.5; }
     .calc-title { text-align: center; font-size: 32px; font-weight: 800; margin-bottom: 10px; }
 
-    /* 履歴表示エリアのスタイル */
-    .history-container {
-        max-height: 200px;
-        overflow-y: auto;
+    /* 履歴表示エリア（履歴モード専用） */
+    .history-mode-container {
         border: 1px solid var(--border-color);
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 10px;
-        margin-top: 10px;
-        background-color: var(--bg-color);
+        background-color: rgba(128, 128, 128, 0.1);
     }
-    .history-item {
-        cursor: pointer;
-        padding: 5px;
-        border-bottom: 1px dashed var(--border-color);
-        font-size: 16px;
+    .history-mode-item {
+        padding: 12px;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 18px;
         color: var(--text-color);
     }
-    .history-item:last-child {
-        border-bottom: none;
-    }
-    .history-formula {
-        font-weight: normal;
-        color: #888;
-        font-size: 14px;
-    }
-    .clear-history-btn div.stButton > button {
-        margin-top: 10px !important;
-        background-color: #666 !important;
-        color: white !important;
-        height: 40px !important;
-        font-size: 16px !important;
-    }
+    .history-mode-formula { font-weight: normal; color: #888; font-size: 14px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -112,7 +87,7 @@ st.markdown('<div class="calc-title">python calculator</div>', unsafe_allow_html
 if 'formula' not in st.session_state: st.session_state.formula = ""
 if 'mode' not in st.session_state: st.session_state.mode = "通常"
 if 'last_was_equal' not in st.session_state: st.session_state.last_was_equal = False
-if 'history' not in st.session_state: st.session_state.history = [] # 計算履歴リスト
+if 'history' not in st.session_state: st.session_state.history = []
 
 st.markdown(f'<div class="display-container"><span>{st.session_state.formula if st.session_state.formula else "0"}</span></div>', unsafe_allow_html=True)
 
@@ -135,7 +110,7 @@ def on_click(char):
     if char == "＝":
         if not current: return
         try:
-            original_formula = current # 履歴保存用に元の式を保持
+            original_f = current
             f = current.replace('×', '*').replace('÷', '/').replace('−', '-')
             f = re.sub(r'([\d\.]+)\°', r'math.radians(\1)', f)
             f = f.replace('√', 'math.sqrt').replace('^^', '**').replace('π', 'math.pi').replace('e', 'math.e')
@@ -146,52 +121,33 @@ def on_click(char):
             f = re.sub(r'偏差値\((.*?),(\[.*?\])\)', r'calculate_t_score(\1,\2)', f)
             res = eval(f, {"__builtins__": None}, {"math": math, "statistics": statistics, "calculate_t_score": calculate_t_score, "abs": abs})
             
-            formatted_res = format(res, '.10g')
-            st.session_state.formula = formatted_res
-
-            # 計算履歴に追加 (新しいものを先頭に)
-            st.session_state.history.insert(0, {
-                "formula": original_formula,
-                "result": formatted_res,
-                "time": datetime.datetime.now().strftime("%H:%M:%S")
-            })
-            if len(st.session_state.history) > 10: # 最大10件まで保持
-                st.session_state.history.pop()
-
+            res_str = format(res, '.10g')
+            st.session_state.formula = res_str
+            st.session_state.history.insert(0, {"f": original_f, "r": res_str, "t": datetime.datetime.now().strftime("%H:%M")})
+            if len(st.session_state.history) > 20: st.session_state.history.pop()
             st.session_state.last_was_equal = True
         except: st.session_state.formula = "Error"
     elif char == "delete": st.session_state.formula = ""
-    elif char.startswith("history_"): # 履歴項目をクリックした場合
-        index = int(char.split("_")[1])
-        st.session_state.formula = st.session_state.history[index]["result"]
-    elif char == "clear_history": # 履歴クリアボタン
-        st.session_state.history = []
+    elif char == "clear_h": st.session_state.history = []
+    elif char.startswith("h_set_"):
+        idx = int(char.replace("h_set_", ""))
+        st.session_state.formula = st.session_state.history[idx]["r"]
+        st.session_state.mode = "通常" # 反映したら通常モードに戻る
     else:
         if not current:
             if char in restricted_operators: return
             st.session_state.formula += str(char); return
-        
-        if current == "−":
-            if char in all_operators: return
-            st.session_state.formula += str(char); return
-
+        if current == "−" and char in all_operators: return
         if current[-1] in all_operators and char in all_operators:
             st.session_state.formula = current[:-1] + str(char); return
         st.session_state.formula += str(char)
 
-def draw_row(labels, key_prefix="btn"):
-    cols = st.columns(len(labels))
-    for i, l in enumerate(labels):
-        if not l: continue
-        if cols[i].button(l, key=f"{key_prefix}_{l}_{i}_{st.session_state.mode}"):
-            on_click(l); st.rerun()
-
-# --- メインレイアウト ---
+# --- メインキーパッド ---
 buttons = ["7", "8", "9", "π", "÷", "+", "4", "5", "6", "e", "√", "−", "1", "2", "3", "i", "^^", "×", "(", ")", "0", "00", ".", "＝"]
 cols = st.columns(6)
 for i, b in enumerate(buttons):
     with cols[i % 6]:
-        if st.button(b, key=f"main_btn_{b}"): on_click(b); st.rerun()
+        if st.button(b, key=f"kb_{b}"): on_click(b); st.rerun()
 
 st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
 if st.button("delete", use_container_width=True): on_click("delete"); st.rerun()
@@ -199,13 +155,23 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<hr class="mode-divider">', unsafe_allow_html=True)
 
-# モード切替
-m_cols = st.columns(4)
-modes = ["通常", "科学計算", "巨数", "値数"]
-for m_idx, m_name in enumerate(modes):
-    if m_cols[m_idx].button(m_name, key=f"mode_btn_{m_name}"): st.session_state.mode = m_name; st.rerun()
+# モード切替（履歴を追加して5列に）
+m_cols = st.columns(5)
+modes = ["通常", "科学計算", "巨数", "値数", "履歴"]
+for i, m in enumerate(modes):
+    if m_cols[i].button(m, key=f"m_btn_{m}"): st.session_state.mode = m; st.rerun()
 
-if st.session_state.mode != "通常":
+# 各モードの表示
+if st.session_state.mode == "履歴":
+    st.write("### 計算履歴 (クリックで結果を反映)")
+    if st.session_state.history:
+        for i, item in enumerate(st.session_state.history):
+            if st.button(f"[{item['t']}] {item['f']} = {item['r']}", key=f"h_item_{i}", use_container_width=True):
+                on_click(f"h_set_{i}"); st.rerun()
+        if st.button("履歴をすべて削除", key="h_clear"): on_click("clear_h"); st.rerun()
+    else:
+        st.info("履歴がありません")
+elif st.session_state.mode != "通常":
     st.write(f"### {st.session_state.mode} モード")
     extra_buttons = []
     if st.session_state.mode == "巨数":
@@ -218,20 +184,4 @@ if st.session_state.mode != "通常":
     e_cols = st.columns(6)
     for i, b in enumerate(extra_buttons):
         with e_cols[i % 6]:
-            if st.button(b, key=f"extra_btn_{b}"): on_click(b); st.rerun()
-
-# --- 計算履歴の表示 ---
-st.markdown("---")
-st.subheader("計算履歴")
-if st.session_state.history:
-    st.markdown('<div class="history-container">', unsafe_allow_html=True)
-    for i, item in enumerate(st.session_state.history):
-        if st.markdown(f'<div class="history-item">[{item["time"]}] <span class="history-formula">{item["formula"]}</span><br>= {item["result"]}</div>', unsafe_allow_html=True):
-            on_click(f"history_{i}"); st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('<div class="clear-history-btn">', unsafe_allow_html=True)
-    if st.button("履歴をクリア", use_container_width=True, key="clear_history_btn"):
-        on_click("clear_history"); st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-else:
-    st.info("まだ計算履歴はありません。")
+            if st.button(b, key=f"ex_{b}"): on_click(b); st.rerun()
