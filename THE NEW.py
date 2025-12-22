@@ -7,7 +7,7 @@ import datetime
 # --- ページ設定 ---
 st.set_page_config(page_title="Python Calculator", layout="centered")
 
-# --- デザインCSS（50/50レイアウトとボタン調整） ---
+# --- デザインCSS ---
 st.markdown("""
 <style>
     html, body, [data-testid="stAppViewContainer"] { overflow-x: hidden !important; width: 100vw; }
@@ -26,15 +26,9 @@ st.markdown("""
         div.stButton > button { height: 70px !important; font-size: 22px !important; }
     }
 
-    /* 下部2分割ボタンの特殊設定 */
-    .bottom-row [data-testid="column"] {
-        flex: 1 !important;
-        min-width: 0 !important;
-    }
+    .bottom-row [data-testid="column"] { flex: 1 !important; min-width: 0 !important; }
     @media (max-width: 600px) {
-        .bottom-row [data-testid="stHorizontalBlock"] {
-            grid-template-columns: repeat(2, 1fr) !important;
-        }
+        .bottom-row [data-testid="stHorizontalBlock"] { grid-template-columns: repeat(2, 1fr) !important; }
     }
 
     .display-container {
@@ -75,10 +69,8 @@ def calculate_expected_value(values, weights):
 
 def on_click(char):
     current = st.session_state.formula
-    # 四則演算子（−も含む）
     operators = ["+", "−", "×", "÷", "^^", ".", "°"]
 
-    # エラー回復と計算直後の挙動
     if current == "Error" or st.session_state.last_was_equal:
         if char in operators and current != "Error":
             st.session_state.last_was_equal = False
@@ -90,7 +82,8 @@ def on_click(char):
         try:
             original_f = current
             f = current.replace('×', '*').replace('÷', '/').replace('−', '-').replace('m', '-')
-            f = f.replace(')]', '])').replace('°', '*math.pi/180')
+            f = f.replace(')]', '])')
+            f = re.sub(r'([\d\.]+)\°', r'math.radians(\1)', f)
             f = f.replace('√', 'math.sqrt').replace('^^', '**').replace('π', 'math.pi').replace('e', 'math.e')
             f = f.replace('sin', 'math.sin').replace('cos', 'math.cos').replace('tan', 'math.tan').replace('abs', 'abs').replace('log', 'math.log10')
             u_map = {'Q':'1e30','R':'1e27','Y':'1e24','Z':'1e21','E':'1e18','P':'1e15','T':'1e12','G':'1e9','M':'1e6','k':'1e3','h':'1e2','da':'1e1','d':'1e-1','c':'1e-2','m':'1e-3','μ':'1e-6','n':'1e-9','p':'1e-12','f':'1e-15','a':'1e-18','z':'1e-21','y':'1e-24','r':'1e-27','q':'1e-30'}
@@ -106,42 +99,33 @@ def on_click(char):
             st.session_state.last_was_equal = True
         except: st.session_state.formula = "Error"
     elif char == "delete": st.session_state.formula = ""
-    elif char == "(-)": # 符号としてのマイナス
-        if not current: 
-            st.session_state.formula = "−" # 内部的には演算子の−と同じ記号を使うが、先頭許可
-        elif current.endswith("−") or current.endswith("+") or current.endswith("×") or current.endswith("÷"):
-            st.session_state.formula += "−" # 演算子の後にも符号として入力可能
-        else:
-            # 数字の後に押された場合は、便宜上演算子の−として扱うか、入力を無視（今回は演算子扱い）
-            on_click("−")
+    elif char == "(-)":
+        if not current or current[-1] in ["+", "−", "×", "÷", "(", "^^"]:
+            st.session_state.formula += "−"
+        else: on_click("−")
     else:
-        # 式が空の時、演算子（-を含む）は入力不可
-        if not current:
-            if char in operators: return
-            st.session_state.formula += str(char); return
-        
-        # 演算子の連続入力（上書き）
-        if current[-1] in operators and char in operators:
+        if not current and char in operators: return
+        if current and current[-1] in operators and char in operators:
             st.session_state.formula = current[:-1] + str(char); return
-        
         st.session_state.formula += str(char)
 
-# --- UI構築 ---
-# メインキーパッド (6列レイアウト、ただし÷と(-)を入れ替え)
+# --- キーパッド配置 (6列) ---
+# 右側縦列を (-), +, −, ×, ÷ に固定
 main_btns = [
-    "7", "8", "9", "π", "(-)", "+", 
-    "4", "5", "6", "e", "√", "−", 
-    "1", "2", "3", "i", "^^", "÷", 
-    "(", ")", "0", "00", ".", "" # 最後の空は調整用
+    "7", "8", "9", "π", "√", "(-)", 
+    "4", "5", "6", "e", "^^", "+", 
+    "1", "2", "3", "i", "(",  "−", 
+    "0", "00", ".", ")", " ", "×", 
+    " ", " ", " ", " ", " ", "÷"
 ]
 
 cols = st.columns(6)
 for i, b in enumerate(main_btns):
-    if not b: continue
+    if b == " ": continue
     with cols[i % 6]:
-        if st.button(b, key=f"main_{b}_{i}"): on_click(b); st.rerun()
+        if st.button(b, key=f"kb_{b}_{i}"): on_click(b); st.rerun()
 
-# 下部の delete と ＝ (50/50)
+# 下部 ＝ と delete
 st.markdown('<div class="bottom-row">', unsafe_allow_html=True)
 b_cols = st.columns(2)
 with b_cols[0]:
@@ -162,7 +146,7 @@ modes = ["通常", "科学計算", "巨数", "値数", "履歴"]
 for i, m in enumerate(modes):
     if m_cols[i].button(m, key=f"m_{m}"): st.session_state.mode = m; st.rerun()
 
-# モード別ボタン表示
+# 各モードのボタン表示
 if st.session_state.mode == "履歴":
     st.write("### 計算履歴")
     for i, item in enumerate(st.session_state.history):
