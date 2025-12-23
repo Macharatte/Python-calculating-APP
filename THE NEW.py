@@ -7,27 +7,32 @@ import datetime
 # --- ページ設定 ---
 st.set_page_config(page_title="Python Calculator", layout="centered")
 
-# --- 色彩反転（ライト/ダーク対応）＆ 1行表示CSS ---
+# --- ライトモード：背景白・ボタン黒・文字白 / ダークモード：反転 デザインCSS ---
 st.markdown("""
 <style>
-    /* 1. 基本カラー変数の定義（システム設定に合わせて反転） */
+    /* 1. カラー変数の再定義 */
     :root {
-        --text-color: #000000;
-        --bg-color: #FFFFFF;
-        --border-color: #000000;
+        --bg-page: #FFFFFF;
+        --text-display: #000000;
+        --btn-bg: #000000;
+        --btn-text: #FFFFFF;
+        --btn-border: #000000;
     }
     @media (prefers-color-scheme: dark) {
         :root {
-            --text-color: #FFFFFF;
-            --bg-color: #000000;
-            --border-color: #FFFFFF;
+            --bg-page: #000000;
+            --text-display: #FFFFFF;
+            --btn-bg: #FFFFFF;
+            --btn-text: #000000;
+            --btn-border: #FFFFFF;
         }
     }
 
-    /* 2. 画面全体の背景と文字色 */
+    /* 2. 画面全体の背景 */
     .main .block-container {
         max-width: 95% !important; 
         padding: 5px 2px !important;
+        background-color: var(--bg-page) !important;
     }
     header {visibility: hidden;}
     
@@ -36,9 +41,8 @@ st.markdown("""
         text-align: center;
         font-weight: 900 !important;
         font-size: 26px !important;
-        color: var(--text-color) !important;
+        color: var(--text-display) !important;
         margin-bottom: 10px !important;
-        white-space: nowrap !important; /* 改行防止 */
     }
 
     .display-container {
@@ -49,57 +53,54 @@ st.markdown("""
         font-weight: 900 !important;
         margin-bottom: 15px !important;
         padding: 10px !important; 
-        border-bottom: 5px solid var(--border-color) !important;
+        border-bottom: 5px solid var(--text-display) !important;
         min-height: 100px !important;
-        color: var(--text-color) !important;
+        color: var(--text-display) !important;
         word-break: break-all !important;
     }
 
-    /* 4. ボタンデザイン（枠線色を自動反転） */
+    /* 4. ボタンデザイン（デフォルト背景白：ボタン黒 / 文字白） */
     div.stButton > button {
         width: 100% !important;
         height: 75px !important;
-        font-size: 26px !important;
-        font-weight: 900 !important;
         border-radius: 8px !important;
-        background-color: var(--bg-color) !important;
-        color: var(--text-color) !important;
-        border: 2px solid var(--border-color) !important;
+        background-color: var(--btn-bg) !important;
+        color: var(--btn-text) !important;
+        border: 2px solid var(--btn-border) !important;
         transition: none !important;
         animation: none !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
     
-    /* ボタン内テキストの改行を絶対に防止 */
+    /* ボタン内テキストの1行強制 */
     div.stButton > button p {
-        color: var(--text-color) !important;
+        color: var(--btn-text) !important;
         white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: clip !important;
-        font-size: 18px !important; /* 科学計算などの長い文字用 */
+        font-weight: 900 !important;
+        font-size: 16px !important; /* 科学計算などの1行表示用 */
     }
 
-    /* 数字ボタンは大きく表示 */
+    /* 数字ボタンはより大きく表示 */
     [data-testid="column"]:nth-child(-n+3) div.stButton > button p {
         font-size: 28px !important;
     }
 
-    /* 5. 特殊ボタンの配色 */
-    .del-btn div.stButton > button { background-color: #FF4B4B !important; border-color: var(--border-color) !important; }
-    .eq-btn div.stButton > button { background-color: #2e7d32 !important; border-color: var(--border-color) !important; }
-    
+    /* 5. 特殊ボタン（delete/＝） */
+    .del-btn div.stButton > button { background-color: #FF4B4B !important; border: 2px solid #FF4B4B !important; }
+    .eq-btn div.stButton > button { background-color: #2e7d32 !important; border: 2px solid #2e7d32 !important; }
     .del-btn div.stButton > button p, .eq-btn div.stButton > button p { color: #FFFFFF !important; }
 
-    /* モード切替エリアのテキスト1行強制 */
+    /* モードテキスト */
     .mode-text {
-        color: var(--text-color) !important;
+        color: var(--text-display) !important;
         font-weight: bold;
         margin-bottom: 8px;
-        white-space: nowrap !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# タイトル
 st.markdown('<div class="calc-title">PYTHON CALCULATOR</div>', unsafe_allow_html=True)
 
 # --- 状態管理 ---
@@ -109,7 +110,6 @@ if 'mode' not in ss: ss.mode = "通常"
 if 'last_was_equal' not in ss: ss.last_was_equal = False
 if 'history' not in ss: ss.history = []
 
-# ディスプレイ表示
 st.markdown(f'<div class="display-container"><span>{ss.formula if ss.formula else "0"}</span></div>', unsafe_allow_html=True)
 
 # --- ロジック ---
@@ -138,7 +138,7 @@ def on_click(char):
             ss.formula = ss.formula[:-1] + str(char)
         else: ss.formula += str(char)
 
-# --- キーパッド ---
+# --- メインキーパッド ---
 main_btns = [
     "7", "8", "9", "π", "√",  "+",
     "4", "5", "6", "e", "^^", "−",
@@ -163,15 +163,13 @@ with bot_c2:
     if st.button("＝", use_container_width=True, key="btn_eq"): on_click("＝"); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<hr style="margin:15px 0; border-color:var(--border-color); opacity:0.3;">', unsafe_allow_html=True)
+st.markdown('<hr style="margin:15px 0; opacity:0.3;">', unsafe_allow_html=True)
 
-# --- モード切替（1行表示を維持） ---
+# --- モード切替（1行表示） ---
 m_cols = st.columns(5)
 modes = ["通常", "科学計算", "巨数", "値数", "履歴"]
 for i, m in enumerate(modes):
-    if m_cols[i].button(m, key=f"m{i}"):
-        ss.mode = m
-        st.rerun()
+    if m_cols[i].button(m, key=f"m{i}"): ss.mode = m; st.rerun()
 
 # モード別表示
 if ss.mode != "通常":
