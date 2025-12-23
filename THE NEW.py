@@ -7,29 +7,32 @@ import datetime
 # --- ページ設定 ---
 st.set_page_config(page_title="Python Calculator", layout="centered")
 
-# --- 強力なレイアウト修正CSS ---
+# --- 究極のレイアウト修正CSS ---
 st.markdown("""
 <style>
-    /* 1. 画面左右の余白を完全に除去 */
+    /* 1. 画面全体の余白を極限まで排除 */
     .main .block-container {
         max-width: 100% !important;
-        padding: 10px 2px !important;
+        padding: 5px 2px !important;
     }
     header {visibility: hidden;}
     
-    /* 2. カラム間の余白をゼロにし、ボタンを均等化 */
+    /* 2. 6列グリッドの強制均等化（＋キーの消失を物理的に防ぐ） */
     [data-testid="stHorizontalBlock"] {
         gap: 2px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
     }
     [data-testid="column"] {
-        width: calc(16.66% - 2px) !important;
-        flex: none !important;
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
     }
 
-    /* 3. 下部ボタン（50/50）用の特別設定 */
-    .bottom-row-container [data-testid="column"] {
-        width: calc(50% - 2px) !important;
-        flex: none !important;
+    /* 3. deleteと＝の行（50/50）を横幅いっぱいに */
+    .st-emotion-cache-1r6slb0, .st-emotion-cache-ocqm7l { 
+        gap: 5px !important;
     }
 
     /* 4. ボタンの共通デザイン */
@@ -37,12 +40,13 @@ st.markdown("""
         width: 100% !important;
         height: 65px !important;
         font-size: 22px !important;
-        border-radius: 8px !important;
+        border-radius: 6px !important;
         font-weight: bold !important;
         background-color: var(--bg-color) !important;
         color: var(--text-color) !important;
         border: 2px solid var(--border-color) !important;
         padding: 0 !important;
+        transition: none !important;
     }
 
     .display-container {
@@ -54,14 +58,13 @@ st.markdown("""
     :root { --bg-color: #000000; --text-color: #ffffff; --border-color: #444444; }
     @media (prefers-color-scheme: dark) { :root { --bg-color: #ffffff; --text-color: #000000; --border-color: #cccccc; } }
     
-    .delete-btn-style div.stButton > button { background-color: #FF0000 !important; color: white !important; border: none !important; }
-    .equal-btn-style div.stButton > button { background-color: #2e7d32 !important; color: white !important; border: none !important; }
-    
-    .calc-title { text-align: center; font-size: 24px; font-weight: 800; margin-bottom: 5px; }
+    /* 下部ボタンの配色 */
+    .del-btn div.stButton > button { background-color: #FF0000 !important; color: white !important; border: none !important; }
+    .eq-btn div.stButton > button { background-color: #2e7d32 !important; color: white !important; border: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="calc-title">PYTHON CALCULATOR</div>', unsafe_allow_html=True)
+st.markdown('<div class="calc-title" style="text-align:center; font-weight:800; font-size:24px;">PYTHON CALCULATOR</div>', unsafe_allow_html=True)
 
 # --- 状態管理 ---
 ss = st.session_state
@@ -108,23 +111,23 @@ main_btns = [
     "0", "00", ".", "(", ")", "÷"
 ]
 
+# 列の幅を強制的に均等化して描画
 cols = st.columns(6)
 for i, b in enumerate(main_btns):
     with cols[i % 6]:
         if st.button(b, key=f"k{i}"): on_click(b); st.rerun()
 
-# --- 下部ボタンエリア（均等2列） ---
-st.markdown('<div class="bottom-row-container">', unsafe_allow_html=True)
-c1, c2 = st.columns(2)
-with c1:
-    st.markdown('<div class="delete-btn-style">', unsafe_allow_html=True)
-    if st.button("delete", use_container_width=True): on_click("delete"); st.rerun()
+# --- 下部ボタン（delete/＝）を全幅50%ずつに ---
+st.write("") # マージン
+bot_c1, bot_c2 = st.columns(2)
+with bot_c1:
+    st.markdown('<div class="del-btn">', unsafe_allow_html=True)
+    if st.button("delete", use_container_width=True, key="btn_del"): on_click("delete"); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
-with c2:
-    st.markdown('<div class="equal-btn-style">', unsafe_allow_html=True)
-    if st.button("＝", use_container_width=True): on_click("＝"); st.rerun()
+with bot_c2:
+    st.markdown('<div class="eq-btn">', unsafe_allow_html=True)
+    if st.button("＝", use_container_width=True, key="btn_eq"): on_click("＝"); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<hr style="margin:15px 0; opacity:0.1;">', unsafe_allow_html=True)
 
