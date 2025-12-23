@@ -7,75 +7,85 @@ import datetime
 # --- ページ設定 ---
 st.set_page_config(page_title="Python Calculator", layout="centered")
 
-# --- 表示修正 & 高速反応CSS ---
+# --- 表示の強制白文字化 & 超高速反応CSS ---
 st.markdown("""
 <style>
-    /* 1. 画面全体の背景と余白 */
+    /* 1. 画面全体の背景を黒、文字を白に強制 */
+    [data-testid="stAppViewContainer"], .main {
+        background-color: #000000 !important;
+        color: #FFFFFF !important;
+    }
     .main .block-container {
         max-width: 95% !important; 
         padding: 5px 2px !important;
     }
     header {visibility: hidden;}
     
-    /* 2. タイトルの色を白に固定 */
+    /* 2. タイトルの強制白表示 */
     .calc-title {
         text-align: center;
-        font-weight: 900;
-        font-size: 26px;
+        font-weight: 900 !important;
+        font-size: 28px !important;
         color: #FFFFFF !important;
-        margin-bottom: 10px;
+        margin-bottom: 10px !important;
+        display: block !important;
     }
 
-    /* 3. ディスプレイ（入力欄）の文字色を白に固定 */
+    /* 3. ディスプレイ（数字表示）の強制白表示 */
     .display-container {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        font-size: 52px;
-        font-weight: bold;
-        margin-bottom: 15px;
-        padding: 10px; 
-        border-bottom: 5px solid #FFFFFF;
-        min-height: 95px;
-        color: #FFFFFF !important; /* ここを白に強制 */
-        word-break: break-all;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        font-size: 55px !important;
+        font-weight: 900 !important;
+        margin-bottom: 15px !important;
+        padding: 10px !important; 
+        border-bottom: 5px solid #FFFFFF !important;
+        min-height: 100px !important;
+        color: #FFFFFF !important;
+        word-break: break-all !important;
+    }
+    .display-container span {
+        color: #FFFFFF !important;
     }
 
     /* 4. ボタンの高速反応 & ホワイトボーダー */
     div.stButton > button {
         width: 100% !important;
         height: 75px !important;
-        font-size: 26px !important;
+        font-size: 28px !important;
         font-weight: 900 !important;
         border-radius: 8px !important;
         background-color: #000000 !important;
         color: #FFFFFF !important;
         border: 2px solid #FFFFFF !important;
+        /* 高速化: アニメーションを徹底排除 */
         transition: none !important;
-        transform: none !important;
+        animation: none !important;
+        box-shadow: none !important;
+    }
+    
+    /* ボタン文字色も強制 */
+    div.stButton > button p {
+        color: #FFFFFF !important;
+        font-size: 28px !important;
+        font-weight: 900 !important;
     }
 
     div.stButton > button:active {
-        background-color: #333333 !important;
+        background-color: #444444 !important;
     }
 
-    /* グリッド安定化 */
-    [data-testid="stHorizontalBlock"] {
-        gap: 6px !important;
-    }
+    /* 下部ボタン */
+    .del-btn div.stButton > button { background-color: #FF0000 !important; }
+    .eq-btn div.stButton > button { background-color: #2e7d32 !important; }
 
-    /* 下部ボタンの配色 */
-    .del-btn div.stButton > button { background-color: #CC0000 !important; }
-    .eq-btn div.stButton > button { background-color: #245a27 !important; }
-    
-    /* モード切替ボタンの文字も見やすく */
-    [data-testid="stHorizontalBlock"] button p {
-        color: #FFFFFF !important;
-    }
+    /* モード切替エリア */
+    [data-testid="stHorizontalBlock"] { gap: 6px !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# タイトル表示
+# 1. タイトル反映
 st.markdown('<div class="calc-title">PYTHON CALCULATOR</div>', unsafe_allow_html=True)
 
 # --- 状態管理 ---
@@ -85,10 +95,10 @@ if 'mode' not in ss: ss.mode = "通常"
 if 'last_was_equal' not in ss: ss.last_was_equal = False
 if 'history' not in ss: ss.history = []
 
-# ディスプレイ表示（白文字強制）
+# 2. 数字の表示反映
 st.markdown(f'<div class="display-container"><span>{ss.formula if ss.formula else "0"}</span></div>', unsafe_allow_html=True)
 
-# --- 入力ロジック ---
+# --- 高速ロジック ---
 def on_click(char):
     operators = ["+", "−", "×", "÷", "^^", ".", "°"]
     if ss.formula == "Error" or ss.last_was_equal:
@@ -122,7 +132,7 @@ def on_click(char):
         else:
             ss.formula += str(char)
 
-# --- メインキーパッド ---
+# --- キーパッド ---
 main_btns = [
     "7", "8", "9", "π", "√",  "+",
     "4", "5", "6", "e", "^^", "−",
@@ -133,6 +143,7 @@ main_btns = [
 cols = st.columns(6)
 for i, b in enumerate(main_btns):
     with cols[i % 6]:
+        # 高速リフレッシュのためにボタンクリックを直接処理
         if st.button(b, key=f"k{i}"):
             on_click(b)
             st.rerun()
@@ -143,17 +154,15 @@ bot_c1, bot_c2 = st.columns(2)
 with bot_c1:
     st.markdown('<div class="del-btn">', unsafe_allow_html=True)
     if st.button("delete", use_container_width=True, key="btn_del"):
-        on_click("delete")
-        st.rerun()
+        on_click("delete"); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 with bot_c2:
     st.markdown('<div class="eq-btn">', unsafe_allow_html=True)
     if st.button("＝", use_container_width=True, key="btn_eq"):
-        on_click("＝")
-        st.rerun()
+        on_click("＝"); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<hr style="margin:15px 0; border-color:white; opacity:0.2;">', unsafe_allow_html=True)
+st.markdown('<hr style="margin:15px 0; border-color:white; opacity:0.3;">', unsafe_allow_html=True)
 
 # --- モード切替 ---
 m_cols = st.columns(5)
@@ -163,9 +172,9 @@ for i, m in enumerate(modes):
         ss.mode = m
         st.rerun()
 
-# モード別ボタン表示
+# モード別（文字色を白に強制）
 if ss.mode != "通常":
-    st.markdown(f'<div style="color:white; margin-bottom:5px;">MODE: {ss.mode}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="color:#FFFFFF !important; font-weight:bold; margin-bottom:10px;">MODE: {ss.mode}</div>', unsafe_allow_html=True)
     if ss.mode == "履歴":
         for i, item in enumerate(ss.history[:5]):
             if st.button(f"{item['f']} = {item['r']}", key=f"h{i}", use_container_width=True):
@@ -182,5 +191,4 @@ if ss.mode != "通常":
         for i, b in enumerate(extra):
             with e_cols[i % 6]:
                 if st.button(b, key=f"e{i}"):
-                    on_click(b)
-                    st.rerun()
+                    on_click(b); st.rerun()
