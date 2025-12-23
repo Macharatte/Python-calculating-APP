@@ -7,64 +7,57 @@ import datetime
 # --- ページ設定 ---
 st.set_page_config(page_title="Python Calculator", layout="centered")
 
-# --- 究極のカスタムグリッドCSS ---
+# --- ボタン横幅拡張・デザイン最適化CSS ---
 st.markdown("""
 <style>
-    /* 1. 画面全体の余白をゼロに */
+    /* 1. 画面全体の横幅をさらに拡張 */
     .main .block-container {
-        max-width: 100% !important;
+        max-width: 95% !important; 
         padding: 5px 2px !important;
     }
     header {visibility: hidden;}
 
-    /* 2. カスタムグリッドの定義（絶対に6列均等） */
-    .calc-grid {
-        display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        gap: 4px;
-        width: 100%;
-        margin-bottom: 5px;
+    /* 2. ボタンを太く・横に広く見せるためのグリッド設定 */
+    [data-testid="stHorizontalBlock"] {
+        gap: 8px !important; /* ボタン間の間隔を広げて1つ1つを強調 */
+        display: flex !important;
+        flex-direction: row !important;
+        width: 100% !important;
+    }
+    
+    [data-testid="column"] {
+        flex: 1 1 auto !important; /* 横幅をより柔軟に広げる */
+        min-width: 0 !important;
     }
 
-    /* 3. 下部ボタン用の2列グリッド */
-    .bottom-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 6px;
-        width: 100%;
-        margin-top: 5px;
-    }
-
-    /* 4. ボタンの太さとデザインの固定 */
+    /* 3. 通常機能と巨数ボタンのサイズアップ（横幅を強調） */
     div.stButton > button {
         width: 100% !important;
-        height: 70px !important;
-        font-size: 24px !important;
-        font-weight: 800 !important;
-        border-radius: 8px !important;
+        height: 75px !important; /* 高さを出しつつ横の安定感も向上 */
+        font-size: 26px !important; /* 文字も大きくして視認性アップ */
+        font-weight: 900 !important;
+        border-radius: 10px !important;
         background-color: var(--bg-color) !important;
         color: var(--text-color) !important;
-        border: 2px solid var(--border-color) !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
+        border: 3px solid var(--border-color) !important; /* 枠線を太くして存在感を出す */
+        box-shadow: 0px 4px 6px rgba(0,0,0,0.2) !important; /* 押しやすそうな立体感 */
     }
 
-    /* 5. 配色とディスプレイ */
+    /* ディスプレイ部分の強化 */
     .display-container {
         display: flex; align-items: center; justify-content: flex-end;
-        font-size: 48px; font-weight: bold; margin-bottom: 15px; padding: 10px; 
-        border-bottom: 4px solid currentColor; min-height: 90px; word-break: break-all;
+        font-size: 52px; font-weight: bold; margin-bottom: 20px; padding: 15px; 
+        border-bottom: 5px solid currentColor; min-height: 100px; word-break: break-all;
     }
-    :root { --bg-color: #000000; --text-color: #ffffff; --border-color: #444444; }
-    @media (prefers-color-scheme: dark) { :root { --bg-color: #ffffff; --text-color: #000000; --border-color: #cccccc; } }
+    :root { --bg-color: #000000; --text-color: #ffffff; --border-color: #555555; }
+    @media (prefers-color-scheme: dark) { :root { --bg-color: #ffffff; --text-color: #000000; --border-color: #bbbbbb; } }
     
     .del-btn div.stButton > button { background-color: #FF0000 !important; color: white !important; border: none !important; }
     .eq-btn div.stButton > button { background-color: #2e7d32 !important; color: white !important; border: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div style="text-align:center; font-weight:900; font-size:26px; margin-bottom:10px;">PYTHON CALCULATOR</div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align:center; font-weight:900; font-size:28px; margin-bottom:10px;">PYTHON CALCULATOR</div>', unsafe_allow_html=True)
 
 # --- 状態管理 ---
 ss = st.session_state
@@ -101,7 +94,7 @@ def on_click(char):
             ss.formula = ss.formula[:-1] + str(char); return
         ss.formula += str(char)
 
-# --- メインキーパッド（HTMLグリッドによる強制配置） ---
+# --- メインキーパッド ---
 main_btns = [
     "7", "8", "9", "π", "√",  "+",
     "4", "5", "6", "e", "^^", "−",
@@ -109,31 +102,24 @@ main_btns = [
     "0", "00", ".", "(", ")", "÷"
 ]
 
-# st.containerを使ってグリッドを形成
-with st.container():
-    st.markdown('<div class="calc-grid">', unsafe_allow_html=True)
-    # Streamlitの仕様上、グリッドタグの中には直接 st.button を入れられないため、
-    # 従来通り st.columns を使いますが、CSSでその挙動を完全に上書きしています。
-    cols = st.columns(6)
-    for i, b in enumerate(main_btns):
-        with cols[i % 6]:
-            if st.button(b, key=f"k{i}"): on_click(b); st.rerun()
+cols = st.columns(6)
+for i, b in enumerate(main_btns):
+    with cols[i % 6]:
+        if st.button(b, key=f"k{i}"): on_click(b); st.rerun()
+
+# --- 下部ボタン（delete/＝） ---
+st.write("") 
+bot_c1, bot_c2 = st.columns(2)
+with bot_c1:
+    st.markdown('<div class="del-btn">', unsafe_allow_html=True)
+    if st.button("delete", use_container_width=True, key="btn_del"): on_click("delete"); st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+with bot_c2:
+    st.markdown('<div class="eq-btn">', unsafe_allow_html=True)
+    if st.button("＝", use_container_width=True, key="btn_eq"): on_click("＝"); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 下部ボタン（delete/＝）を確実に全幅化 ---
-st.write("") 
-with st.container():
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown('<div class="del-btn">', unsafe_allow_html=True)
-        if st.button("delete", use_container_width=True, key="btn_del"): on_click("delete"); st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown('<div class="eq-btn">', unsafe_allow_html=True)
-        if st.button("＝", use_container_width=True, key="btn_eq"): on_click("＝"); st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<hr style="margin:20px 0; opacity:0.1;">', unsafe_allow_html=True)
+st.markdown('<hr style="margin:25px 0; opacity:0.1;">', unsafe_allow_html=True)
 
 # --- モード切替 ---
 m_cols = st.columns(5)
@@ -141,7 +127,7 @@ modes = ["通常", "科学計算", "巨数", "値数", "履歴"]
 for i, m in enumerate(modes):
     if m_cols[i].button(m, key=f"m{i}"): ss.mode = m; st.rerun()
 
-# モード別ボタン
+# モード別ボタン（巨数モードなども共通でサイズアップが適用されます）
 if ss.mode != "通常":
     st.caption(f"ACTIVE MODE: {ss.mode}")
     extra = []
