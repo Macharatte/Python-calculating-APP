@@ -1,192 +1,162 @@
 import streamlit as st
 import math
 import statistics
-import re
 import datetime
+import requests
 
 # --- ページ設定 ---
-st.set_page_config(page_title="Python Calculator", layout="centered")
+st.set_page_config(page_title="Python Calculator Pro 2", layout="centered")
 
-# --- ライトモード：背景白・ボタン黒・文字白 / ダークモード：反転 デザインCSS ---
+# --- デザインCSS（反転・1行表示・ゴールド演出） ---
 st.markdown("""
 <style>
-    /* 1. カラー変数の再定義 */
-    :root {
-        --bg-page: #FFFFFF;
-        --text-display: #000000;
-        --btn-bg: #000000;
-        --btn-text: #FFFFFF;
-        --btn-border: #000000;
-    }
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --bg-page: #000000;
-            --text-display: #FFFFFF;
-            --btn-bg: #FFFFFF;
-            --btn-text: #000000;
-            --btn-border: #FFFFFF;
-        }
-    }
-
-    /* 2. 画面全体の背景 */
-    .main .block-container {
-        max-width: 95% !important; 
-        padding: 5px 2px !important;
-        background-color: var(--bg-page) !important;
-    }
+    :root { --bg-page: #FFFFFF; --text-display: #000000; --btn-bg: #000000; --btn-text: #FFFFFF; --btn-border: #000000; }
+    @media (prefers-color-scheme: dark) { :root { --bg-page: #000000; --text-display: #FFFFFF; --btn-bg: #FFFFFF; --btn-text: #000000; --btn-border: #FFFFFF; } }
+    .main .block-container { max-width: 95% !important; padding: 5px 2px !important; background-color: var(--bg-page) !important; }
     header {visibility: hidden;}
-    
-    /* 3. タイトルとディスプレイ */
-    .calc-title {
-        text-align: center;
-        font-weight: 900 !important;
-        font-size: 26px !important;
-        color: var(--text-display) !important;
-        margin-bottom: 10px !important;
-    }
-
     .display-container {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-end !important;
-        font-size: 55px !important;
-        font-weight: 900 !important;
-        margin-bottom: 15px !important;
-        padding: 10px !important; 
-        border-bottom: 5px solid var(--text-display) !important;
-        min-height: 100px !important;
-        color: var(--text-display) !important;
-        word-break: break-all !important;
+        display: flex; align-items: center; justify-content: flex-end;
+        font-size: 50px; font-weight: 900; margin-bottom: 10px; padding: 10px; 
+        border-bottom: 5px solid var(--text-display); min-height: 100px; color: var(--text-display); word-break: break-all;
     }
-
-    /* 4. ボタンデザイン（デフォルト背景白：ボタン黒 / 文字白） */
     div.stButton > button {
-        width: 100% !important;
-        height: 75px !important;
-        border-radius: 8px !important;
-        background-color: var(--btn-bg) !important;
-        color: var(--btn-text) !important;
-        border: 2px solid var(--btn-border) !important;
-        transition: none !important;
-        animation: none !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
+        width: 100% !important; height: 70px !important; border-radius: 8px !important;
+        background-color: var(--btn-bg) !important; color: var(--btn-text) !important;
+        border: 2px solid var(--btn-border) !important; transition: none !important;
     }
-    
-    /* ボタン内テキストの1行強制 */
-    div.stButton > button p {
-        color: var(--btn-text) !important;
-        white-space: nowrap !important;
-        font-weight: 900 !important;
-        font-size: 16px !important; /* 科学計算などの1行表示用 */
-    }
-
-    /* 数字ボタンはより大きく表示 */
-    [data-testid="column"]:nth-child(-n+3) div.stButton > button p {
-        font-size: 28px !important;
-    }
-
-    /* 5. 特殊ボタン（delete/＝） */
-    .del-btn div.stButton > button { background-color: #FF4B4B !important; border: 2px solid #FF4B4B !important; }
-    .eq-btn div.stButton > button { background-color: #2e7d32 !important; border: 2px solid #2e7d32 !important; }
-    .del-btn div.stButton > button p, .eq-btn div.stButton > button p { color: #FFFFFF !important; }
-
-    /* モードテキスト */
-    .mode-text {
-        color: var(--text-display) !important;
-        font-weight: bold;
-        margin-bottom: 8px;
-    }
+    div.stButton > button p { color: var(--btn-text) !important; white-space: nowrap !important; font-weight: 900; font-size: 15px; }
+    .premium-btn div.stButton > button { background-color: #FFD700 !important; color: #000000 !important; border-color: #B8860B !important; }
+    .premium-btn div.stButton > button p { color: #000000 !important; }
+    .del-btn div.stButton > button { background-color: #FF4B4B !important; }
+    .eq-btn div.stButton > button { background-color: #2e7d32 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="calc-title">PYTHON CALCULATOR</div>', unsafe_allow_html=True)
+# --- 為替・税金ロジック ---
+@st.cache_data(ttl=3600)
+def get_all_rates():
+    try:
+        url = "https://open.er-api.com/v6/latest/USD"
+        return requests.get(url).json()["rates"]
+    except:
+        return {"JPY": 150.0, "USD": 1.0, "EUR": 0.9, "GBP": 0.8}
+
+def calculate_complex_tax(val, tax_type):
+    if tax_type == "tax_income":  # 所得税（速算表）
+        if val <= 1950000: return val * 0.05
+        elif val <= 3300000: return val * 0.10 - 97500
+        elif val <= 6950000: return val * 0.20 - 427500
+        elif val <= 9000000: return val * 0.23 - 636000
+        elif val <= 18000000: return val * 0.33 - 1536000
+        elif val <= 40000000: return val * 0.40 - 2796000
+        else: return val * 0.45 - 4796000
+    elif tax_type == "tax_gift":  # 贈与税（一般）
+        v = val - 1100000 # 基礎控除
+        if v <= 0: return 0
+        if v <= 2000000: return v * 0.10
+        elif v <= 3000000: return v * 0.15 - 100000
+        elif v <= 4000000: return v * 0.20 - 250000
+        elif v <= 6000000: return v * 0.30 - 650000
+        elif v <= 10000000: return v * 0.40 - 1250000
+        else: return v * 0.55 - 4000000
+    elif tax_type == "tax_corp": return val * 0.30 # 法人税目安
+    elif tax_type == "tax_res": return val * 0.10  # 住民税
+    elif tax_type == "tax_fix": return val * 0.014 # 固定資産税
+    return val
 
 # --- 状態管理 ---
 ss = st.session_state
-if 'formula' not in ss: ss.formula = ""
-if 'mode' not in ss: ss.mode = "通常"
-if 'last_was_equal' not in ss: ss.last_was_equal = False
-if 'history' not in ss: ss.history = []
+for key, val in [('formula', ""), ('mode', "通常"), ('last_was_equal', False), 
+                 ('currency_from', "USD"), ('currency_to', "JPY")]:
+    if key not in ss: ss[key] = val
 
+st.markdown('<div style="text-align:center; font-weight:900; font-size:24px; color:var(--text-display);">PYTHON CALCULATOR 2 (PREMIUM)</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="display-container"><span>{ss.formula if ss.formula else "0"}</span></div>', unsafe_allow_html=True)
 
-# --- ロジック ---
+# --- 基本クリックロジック ---
 def on_click(char):
-    operators = ["+", "−", "×", "÷", "^^", ".", "°"]
-    if ss.formula == "Error" or ss.last_was_equal:
-        if char in operators and ss.formula != "Error": ss.last_was_equal = False
-        else: ss.formula = ""; ss.last_was_equal = False
-
-    if char == "＝":
-        if not ss.formula: return
-        try:
+    try:
+        if char == "＝":
             f = ss.formula.replace('×', '*').replace('÷', '/').replace('−', '-').replace('m', '-')
-            res = eval(f, {"math": math, "statistics": statistics, "abs": abs})
-            res_str = format(res, '.10g')
-            ss.history.insert(0, {"f": ss.formula, "r": res_str, "t": datetime.datetime.now().strftime("%H:%M")})
-            ss.formula = res_str; ss.last_was_equal = True
-        except: ss.formula = "Error"
-    elif char == "delete": ss.formula = ""
-    elif char == "(-)":
-        if not ss.formula or ss.formula[-1] in ["+", "−", "×", "÷", "(", "^^"]: ss.formula += "−"
-        else: on_click("−")
-    else:
-        if not ss.formula and char in operators: return
-        if ss.formula and ss.formula[-1] in operators and char in operators:
-            ss.formula = ss.formula[:-1] + str(char)
-        else: ss.formula += str(char)
+            ss.formula = format(eval(f, {"math": math, "statistics": statistics, "abs": abs}), '.10g')
+            ss.last_was_equal = True
+        elif char == "delete": ss.formula = ""
+        else:
+            if ss.last_was_equal: ss.formula = ""; ss.last_was_equal = False
+            ss.formula += str(char)
+    except: ss.formula = "Error"
 
 # --- メインキーパッド ---
-main_btns = [
-    "7", "8", "9", "π", "√",  "+",
-    "4", "5", "6", "e", "^^", "−",
-    "1", "2", "3", "i", "(-)", "×",
-    "0", "00", ".", "(", ")", "÷"
-]
-
+main_btns = ["7","8","9","π","√","+","4","5","6","e","^^","−","1","2","3","i","(-)","×","0","00",".","(",")","÷"]
 cols = st.columns(6)
 for i, b in enumerate(main_btns):
     with cols[i % 6]:
         if st.button(b, key=f"k{i}"): on_click(b); st.rerun()
 
-# --- 下部ボタン ---
 st.write("") 
 bot_c1, bot_c2 = st.columns(2)
 with bot_c1:
     st.markdown('<div class="del-btn">', unsafe_allow_html=True)
-    if st.button("delete", use_container_width=True, key="btn_del"): on_click("delete"); st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+    if st.button("delete", use_container_width=True): on_click("delete"); st.rerun()
 with bot_c2:
     st.markdown('<div class="eq-btn">', unsafe_allow_html=True)
-    if st.button("＝", use_container_width=True, key="btn_eq"): on_click("＝"); st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+    if st.button("＝", use_container_width=True): on_click("＝"); st.rerun()
 
-st.markdown('<hr style="margin:15px 0; opacity:0.3;">', unsafe_allow_html=True)
+st.markdown('<hr style="margin:10px 0; opacity:0.3;">', unsafe_allow_html=True)
 
-# --- モード切替（1行表示） ---
+# --- モード切替 ---
+modes = ["通常", "科学計算", "巨数", "値数", "👑 有料機能"]
 m_cols = st.columns(5)
-modes = ["通常", "科学計算", "巨数", "値数", "履歴"]
 for i, m in enumerate(modes):
     if m_cols[i].button(m, key=f"m{i}"): ss.mode = m; st.rerun()
 
-# モード別表示
-if ss.mode != "通常":
-    st.markdown(f'<div class="mode-text">MODE: {ss.mode}</div>', unsafe_allow_html=True)
-    if ss.mode == "履歴":
-        for i, item in enumerate(ss.history[:5]):
-            if st.button(f"{item['f']} = {item['r']}", key=f"h{i}", use_container_width=True):
-                ss.formula = item['r']; ss.mode = "通常"; st.rerun()
-    else:
-        if ss.mode == "巨数":
-            extra = ["Q", "R", "Y", "Z", "E", "P", "T", "G", "M", "k", "h", "da", "d", "c", "m", "μ", "n", "p", "f", "a", "z", "y", "r", "q"]
-        elif ss.mode == "科学計算":
-            extra = ["sin(", "cos(", "tan(", "°", "abs(", "log("]
-        elif ss.mode == "値数":
-            extra = ["平均([", "中央値([", "最頻値([", "最大([", "最小([", "])", "偏差値(", "期待値(", ","]
+# --- 有料機能エリア ---
+if ss.mode == "👑 有料機能":
+    st.markdown('<div style="color:var(--text-display); font-weight:bold;">PREMIUM MENU</div>', unsafe_allow_html=True)
+    
+    # --- タブ形式で整理 ---
+    tab1, tab2 = st.tabs(["📊 税金計算(控除対応)", "💱 為替レート(全通貨)"])
+    
+    with tab1:
+        st.caption("入力値に対して各税制（速算表・控除）を適用します")
+        taxes = [("税込(10%)", "tax_10"), ("税込(8%)", "tax_8"), ("所得税(控除込)", "tax_income"), 
+                 ("法人税", "tax_corp"), ("住民税", "tax_res"), ("固定資産税", "tax_fix"), ("贈与税(控除込)", "tax_gift")]
+        t_cols = st.columns(4)
+        for i, (label, code) in enumerate(taxes):
+            with t_cols[i % 4]:
+                st.markdown('<div class="premium-btn">', unsafe_allow_html=True)
+                if st.button(label, key=f"tax{i}"):
+                    val = float(eval(ss.formula.replace('×', '*').replace('÷', '/').replace('−', '-')))
+                    if "10" in code: ss.formula = format(val * 1.10, '.10g')
+                    elif "8" in code: ss.formula = format(val * 1.08, '.10g')
+                    else: ss.formula = format(calculate_complex_tax(val, code), '.10g')
+                    ss.last_was_equal = True; st.rerun()
+
+    with tab2:
+        st.caption("リアルタイムレートで変換します")
+        rates = get_all_rates()
+        cur_list = sorted(list(rates.keys()))
         
-        e_cols = st.columns(6)
-        for i, b in enumerate(extra):
-            with e_cols[i % 6]:
-                if st.button(b, key=f"e{i}"): on_click(b); st.rerun()
+        c_sel1, c_sel2 = st.columns(2)
+        ss.currency_from = c_sel1.selectbox("From", cur_list, index=cur_list.index("USD"))
+        ss.currency_to = c_sel2.selectbox("To", cur_list, index=cur_list.index("JPY"))
+        
+        st.markdown('<div class="premium-btn">', unsafe_allow_html=True)
+        if st.button(f"変換実行 ({ss.currency_from} → {ss.currency_to})", use_container_width=True):
+            try:
+                val = float(eval(ss.formula.replace('×', '*').replace('÷', '/').replace('−', '-')))
+                # USDベースのレートから任意の通貨ペアを計算: (入力 / Fromレート) * Toレート
+                converted = (val / rates[ss.currency_from]) * rates[ss.currency_to]
+                ss.formula = format(converted, '.10g')
+                ss.last_was_equal = True; st.rerun()
+            except: ss.formula = "Error"
+
+# --- 既存のモード表示 ---
+elif ss.mode != "通常":
+    extra = []
+    if ss.mode == "巨数": extra = ["Q", "R", "Y", "Z", "E", "P", "T", "G", "M", "k", "h", "da", "d", "c", "m", "μ", "n", "p", "f", "a", "z", "y", "r", "q"]
+    elif ss.mode == "科学計算": extra = ["sin(", "cos(", "tan(", "°", "abs(", "log("]
+    elif ss.mode == "値数": extra = ["平均([", "中央値([", "最頻値([", "最大([", "最小([", "])", "偏差値(", "期待値(", ","]
+    e_cols = st.columns(6)
+    for i, b in enumerate(extra):
+        if e_cols[i % 6].button(b, key=f"e{i}"): on_click(b); st.rerun()
